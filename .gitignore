@@ -39,3 +39,30 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Generated files
+GeminiImages/
+GeneratedCarousels/
+test_output/
+*.pdf
+test_*.py
+test_*.pdf
+debug_*.py
+bash.exe.stackdump
+temp_carousel_img_*.png
+
+# Documentation (keep only main docs)
+*_EXPLAINED.py
+*_RESULTS.md
+*_INFO.md

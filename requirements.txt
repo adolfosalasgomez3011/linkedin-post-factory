@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+supabase
+python-dotenv
+google-generativeai
+Pillow
+matplotlib
+plotly
+kaleido
+pygments
+qrcode[pil]
+reportlab
+python-multipart
+svglib

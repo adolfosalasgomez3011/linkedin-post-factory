@@ -1,0 +1,379 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import { api, PostResponse } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
+import { Loader2, Sparkles, Copy, CheckCircle2, Edit2, Save } from 'lucide-react'
+
+const PILLARS = [
+  'AI & Innovation',
+  'Tech Leadership',
+  'Career Growth',
+  'Industry Insights',
+  'Personal Brand'
+]
+
+const POST_TYPES = [
+  { value: 'standard', label: 'Standard Text + Image' },
+  { value: 'carousel', label: 'Carousel PDF (Slides)' },
+  { value: 'interactive', label: 'Interactive Demo' }
+]
+
+const FORMATS = [
+  'Story',
+  'Insight',
+  'How-To',
+  'Question',
+  'List',
+  'Quote',
+  'Case Study'
+]
+
+export function PostGenerator() {
+  const router = useRouter()
+  const [pillar, setPillar] = useState('')
+  const [postType, setPostType] = useState('standard')
+  const [format, setFormat] = useState('')
+  const [topic, setTopic] = useState('')
+  const [provider] = useState('gemini')
+  const [loading, setLoading] = useState(false)
+  const [generatedPost, setGeneratedPost] = useState<PostResponse | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedText, setEditedText] = useState('')
+
+  const handleGenerate = async () => {
+    if (!pillar || !format) return
+
+    setLoading(true)
+    try {
+      const result = await api.generatePost({
+        pillar,
+        post_type: postType,
+        format_type: format,
+        topic: topic || undefined,
+        provider
+      })
+      
+      console.log('API Result:', result)
+      
+      // Generate UUID for the post
+      const postId = crypto.randomUUID()
+      
+      // Save to Supabase
+      const postData = {
+        id: postId,
+        text: result.text || result.content,
+        pillar: pillar,
+        format: format,
+        // type: postType, // Temporarily disabled until DB migration
+        topic: topic || null,
+        hashtags: result.hashtags ? result.hashtags.join(' ') : null,
+        voice_score: result.voice_score,
+        length: (result.text || result.content || '').length,
+        status: 'raw' as const
+      }
+      
+      console.log('Attempting to insert:', postData)
+      
+      const { data: insertedData, error } = await supabase.from('posts').insert(postData).select()
+
+      console.log('Insert result:', { data: insertedData, error })
+
+      if (error) {
+        console.error('Error saving to database:', error)
+        console.error('Error code:', error.code)
+        console.error('Error message:', error.message)
+        console.error('Error details:', error.details)
+        console.error('Error hint:', error.hint)
+        alert(`Failed to save: ${error.message || 'Unknown error'}`)
+      } else {
+        // Map API response to expected format for preview
+        setGeneratedPost({
+          ...result,
+          id: postId, // Include the ID
+          text: result.text || result.content,
+          length: (result.text || result.content || '').length,
+          pillar: pillar,
+          format: format,
+          topic: topic || '',
+          hashtags: result.hashtags || []
+        })
+      }
+    } catch (error) {
+      console.error('Failed to generate post:', error)
+      alert('Failed to generate post. Make sure the backend server is running.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBatchGenerate = async () => {
+    setLoading(true)
+    try {
+      await api.batchGenerate(10, pillar || undefined)
+      alert('Batch generation started! Posts will appear in your library.')
+    } catch (error) {
+      console.error('Failed to batch generate:', error)
+      alert('Failed to start batch generation.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCopy = () => {
+    if (generatedPost) {
+      const textToCopy = isEditing ? editedText : generatedPost.text
+      navigator.clipboard.writeText(textToCopy)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleEdit = () => {
+    if (generatedPost) {
+      setEditedText(generatedPost.text)
+      setIsEditing(true)
+    }
+  }
+
+  const handleSaveEdit = async () => {
+    if (!generatedPost || !editedText.trim()) return
+
+    try {
+      // Update in state
+      const updatedPost = {
+        ...generatedPost,
+        text: editedText,
+        length: editedText.length
+      }
+      setGeneratedPost(updatedPost)
+
+      // Update in database
+      if ((generatedPost as any).id) {
+        const { error } = await supabase
+          .from('posts')
+          .update({ 
+            text: editedText,
+            length: editedText.length 
+          })
+          .eq('id', (generatedPost as any).id)
+
+        if (error) {
+          console.error('Error updating post:', error)
+        }
+      }
+
+      setIsEditing(false)
+    } catch (error) {
+      console.error('Failed to save edits:', error)
+      alert('Failed to save edits')
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setEditedText('')
+  }
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2">
+      {/* Generation Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-blue-500" />
+            Generate Post
+          </CardTitle>
+          <CardDescription>
+            Create a new LinkedIn post using AI
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Content Pillar *</label>
+            <Select value={pillar} onValueChange={setPillar}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a pillar" />
+              </SelectTrigger>
+              <SelectContent>
+                {PILLARS.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">            <label className="text-sm font-medium">Post Type *</label>
+            <Select value={postType} onValueChange={setPostType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a type" />
+              </SelectTrigger>
+              <SelectContent>
+                {POST_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">            <label className="text-sm font-medium">Format *</label>
+            <Select value={format} onValueChange={setFormat}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a format" />
+              </SelectTrigger>
+              <SelectContent>
+                {FORMATS.map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {f}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Topic (optional)</label>
+            <Input
+              placeholder="Specific topic or angle..."
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              onClick={handleGenerate}
+              disabled={!pillar || !format || loading}
+              className="flex-1"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                'Generate Post'
+              )}
+            </Button>
+            <Button
+              onClick={handleBatchGenerate}
+              variant="outline"
+              disabled={loading}
+            >
+              Batch (10)
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Preview */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Preview</CardTitle>
+          <CardDescription>
+            Generated post will appear here
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {generatedPost ? (
+            <div className="space-y-4">
+              <div className="flex gap-2 flex-wrap">
+                <Badge variant="outline">{generatedPost.pillar}</Badge>
+                <Badge variant="outline">{generatedPost.format}</Badge>
+                {generatedPost.topic && (
+                  <Badge variant="secondary">{generatedPost.topic}</Badge>
+                )}
+              </div>
+              
+              <Textarea
+                value={isEditing ? editedText : generatedPost.text}
+                onChange={(e) => isEditing && setEditedText(e.target.value)}
+                readOnly={!isEditing}
+                className={`min-h-[300px] font-sans ${isEditing ? 'border-blue-500 border-2' : ''}`}
+                placeholder={isEditing ? 'Edit your post content...' : ''}
+              />
+
+              {generatedPost.hashtags && generatedPost.hashtags.length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  {generatedPost.hashtags.map((tag: string, i: number) => (
+                    <Badge key={i} variant="secondary" className="text-blue-600">
+                      #{tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-sm text-slate-600">
+                <span>{isEditing ? editedText.length : generatedPost.length} characters</span>
+                {generatedPost.voice_score && (
+                  <span>Voice Score: {generatedPost.voice_score.toFixed(1)}/10</span>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                {isEditing ? (
+                  <>
+                    <Button onClick={handleSaveEdit} variant="default" className="flex-1 bg-green-600 hover:bg-green-700">
+                      <Save className="mr-2 h-4 w-4" />
+                      Save Changes
+                    </Button>
+                    <Button onClick={handleCancelEdit} variant="outline" className="flex-1">
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button onClick={handleEdit} variant="outline" className="flex-1">
+                      <Edit2 className="mr-2 h-4 w-4" />
+                      Edit
+                    </Button>
+                    <Button onClick={handleCopy} variant="outline" className="flex-1">
+                      {copied ? (
+                        <>
+                          <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="mr-2 h-4 w-4" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              {!isEditing && (generatedPost as any).id && (
+                <Button 
+                  variant="default" 
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  onClick={() => router.push(`/demos/${(generatedPost as any).id}?tab=visualize`)}
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Create Visuals
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-slate-400">
+              <p>No post generated yet</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
