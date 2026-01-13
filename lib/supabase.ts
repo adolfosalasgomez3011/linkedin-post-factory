@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { Database, Post, PostInsert, PostUpdate, PostStatus } from '@/types/database'
+import type { Database, Post, PostInsert, PostUpdate, PostStatus } from '@/types/database'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -59,7 +59,7 @@ export const postService = {
   async createPost(post: PostInsert) {
     const { data, error } = await supabase
       .from('posts')
-      .insert(post)
+      .insert(post as any)
       .select()
       .single()
     
@@ -69,8 +69,8 @@ export const postService = {
 
   // Update post
   async updatePost(id: string, updates: PostUpdate) {
-    const { data, error } = await supabase
-      .from('posts')
+    const { data, error } = await (supabase
+      .from('posts') as any)
       .update(updates)
       .eq('id', id)
       .select()
@@ -82,8 +82,8 @@ export const postService = {
 
   // Update post status
   async updatePostStatus(id: string, status: PostStatus) {
-    const { data, error } = await supabase
-      .from('posts')
+    const { data, error } = await (supabase
+      .from('posts') as any)
       .update({ status })
       .eq('id', id)
       .select()
@@ -123,15 +123,15 @@ export const postService = {
 
     if (error) throw error
 
-    const total = posts.length
-    const byStatus = posts.reduce((acc, post) => {
-      acc[post.status] = (acc[post.status] || 0) + 1
+    const total = posts?.length || 0
+    const byStatus = (posts || []).reduce((acc, post) => {
+      acc[(post as any).status] = (acc[(post as any).status] || 0) + 1
       return acc
     }, {} as Record<string, number>)
 
-    const avgVoiceScore = posts
-      .filter(p => p.voice_score !== null)
-      .reduce((acc, p) => acc + (p.voice_score || 0), 0) / posts.filter(p => p.voice_score !== null).length || 0
+    const avgVoiceScore = (posts || [])
+      .filter(p => (p as any).voice_score !== null)
+      .reduce((acc, p) => acc + ((p as any).voice_score || 0), 0) / (posts || []).filter(p => (p as any).voice_score !== null).length || 0
 
     return {
       total,

@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { api, PostResponse } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { PostInsert } from '@/types/database'
 import { Loader2, Sparkles, Copy, CheckCircle2, Edit2, Save } from 'lucide-react'
 
 const PILLARS = [
@@ -68,22 +69,26 @@ export function PostGenerator() {
       const postId = crypto.randomUUID()
       
       // Save to Supabase
-      const postData = {
+      const postData: PostInsert = {
         id: postId,
-        text: result.text || result.content,
+        text: result.content || result.text,  // Try content first, fallback to text
         pillar: pillar,
         format: format,
         // type: postType, // Temporarily disabled until DB migration
         topic: topic || null,
         hashtags: result.hashtags ? result.hashtags.join(' ') : null,
         voice_score: result.voice_score,
-        length: (result.text || result.content || '').length,
+        length: (result.content || result.text || '').length,
         status: 'raw' as const
       }
       
       console.log('Attempting to insert:', postData)
       
-      const { data: insertedData, error } = await supabase.from('posts').insert(postData).select()
+      // Type assertion to work around Supabase type inference issue
+      const { data: insertedData, error } = await supabase
+        .from('posts')
+        .insert([postData] as any)
+        .select()
 
       console.log('Insert result:', { data: insertedData, error })
 
@@ -158,8 +163,8 @@ export function PostGenerator() {
 
       // Update in database
       if ((generatedPost as any).id) {
-        const { error } = await supabase
-          .from('posts')
+        const { error } = await (supabase
+          .from('posts') as any)
           .update({ 
             text: editedText,
             length: editedText.length 

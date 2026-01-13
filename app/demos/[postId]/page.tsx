@@ -295,7 +295,7 @@ function VisualizationPanel({ post }: { post: Post }) {
         }
       } else if (type === 'carousel') {
         endpoint = '/media/generate-carousel'
-        let slides = [];
+        let slides: Array<{title: string, content: string}> = [];
         const text = post.text || '';
         
         // Enhanced parsing for "SLIDE X:" and "LAST SLIDE:" formats
@@ -561,7 +561,7 @@ function TechnicalAnalysis({ post }: { post: Post }) {
   const analysis = {
     readability: Math.min(100, 70 + (post.voice_score || 70) / 3),
     seoScore: Math.min(100, 60 + (post.hashtags?.split(' ').length || 0) * 5),
-    viralPotential: Math.min(100, (post.voice_score || 70) + (post.length > 500 ? 20 : 10)),
+    viralPotential: Math.min(100, (post.voice_score || 70) + ((post.length || 0) > 500 ? 20 : 10)),
     professionalTone: post.voice_score || 70
   }
 

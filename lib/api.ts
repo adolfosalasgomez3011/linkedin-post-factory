@@ -13,7 +13,8 @@ export interface PostResponse {
   pillar: string
   format: string
   topic: string
-  text: string
+  content: string  // API returns 'content', not 'text'
+  text: string     // Keep for backward compatibility
   hashtags: string[]
   voice_score: number
   length: number
