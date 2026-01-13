@@ -1,0 +1,6 @@
+requirements.txt
+api/
+*.py
+__pycache__/
+GeminiImages/
+GeneratedCarousels/
