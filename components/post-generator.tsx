@@ -18,7 +18,8 @@ const PILLARS = [
   'Tech Leadership',
   'Career Growth',
   'Industry Insights',
-  'Personal Brand'
+  'Personal Brand',
+  'Mining Industry'
 ]
 
 const POST_TYPES = [

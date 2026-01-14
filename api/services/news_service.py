@@ -48,7 +48,8 @@ class NewsService:
                 "AI & Innovation": "artificial intelligence OR machine learning OR AI OR innovation",
                 "Leadership": "leadership OR management OR business strategy",
                 "Career Growth": "career OR professional development OR job market",
-                "Tech & Tools": "technology OR software OR tools OR apps"
+                "Tech & Tools": "technology OR software OR tools OR apps",
+                "Mining Industry": "mining OR minerals OR mining technology OR mining operations OR extraction OR ore OR mineral resources OR mining equipment"
             }
             search_query = pillar_keywords.get(pillar, query) if not query else query
         else:
