@@ -763,8 +763,13 @@ class MediaGenerator:
                     else:
                         bullet_points.append(point)
 
-            # Start text position (will be used for bullets or footer check)
-            text_start_y = page_height - 420
+            # Start text position BELOW the image area
+            # Image ends at: page_height - 380 - 300 = page_height - 680
+            # Add 20px padding below image
+            if is_cover_slide:
+                text_start_y = page_height - 500  # Below centered image on cover
+            else:
+                text_start_y = page_height - 700  # Below standard positioned image
             
             # Only show bullets if we have content
             if bullet_points:
