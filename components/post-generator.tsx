@@ -63,7 +63,7 @@ export function PostGenerator() {
   
   // News article selection state
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([])
-  const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null)
+  const [selectedArticles, setSelectedArticles] = useState<NewsArticle[]>([])
   const [newsLoading, setNewsLoading] = useState(false)
 
   // Fetch news articles when trending_news type is selected and pillar is chosen
@@ -72,7 +72,7 @@ export function PostGenerator() {
       fetchNewsArticles()
     } else {
       setNewsArticles([])
-      setSelectedArticle(null)
+      setSelectedArticles([])
     }
   }, [postType, pillar])
 
@@ -108,17 +108,20 @@ export function PostGenerator() {
 
   const handleGenerate = async () => {
     if (!pillar || !format) return
-    if (postType === 'trending_news' && !selectedArticle) return
+    if (postType === 'trending_news' && selectedArticles.length === 0) return
 
     setLoading(true)
     try {
+      // Use the first selected article (or could combine multiple in future)
+      const newsArticle = postType === 'trending_news' && selectedArticles.length > 0 ? selectedArticles[0] : undefined
+      
       const result = await api.generatePost({
         pillar,
         post_type: postType,
         format_type: format,
         topic: topic || undefined,
         provider,
-        news_article: postType === 'trending_news' && selectedArticle ? selectedArticle : undefined
+        news_article: newsArticle
       })
       
       console.log('API Result:', result)
@@ -319,7 +322,9 @@ export function PostGenerator() {
           {postType === 'trending_news' && (
             <div className="space-y-3 border-t pt-4">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Select Trending Article *</label>
+                <label className="text-sm font-medium">
+                  Select Article(s) * {selectedArticles.length > 0 && `(${selectedArticles.length} selected)`}
+                </label>
                 {newsLoading && (
                   <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
                 )}
@@ -332,49 +337,69 @@ export function PostGenerator() {
               )}
 
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {newsArticles.map((article, index) => (
-                  <div 
-                    key={index} 
-                    className={`p-3 border rounded-lg cursor-pointer transition-all hover:bg-accent ${
-                      selectedArticle?.url === article.url 
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' 
-                        : 'border-border'
-                    }`}
-                    onClick={() => setSelectedArticle(article)}
-                  >
-                    <h4 className="text-sm font-semibold mb-1 leading-tight">
-                      {article.title}
-                    </h4>
-                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                      {article.description}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                          {article.source}
-                        </Badge>
-                        <span>•</span>
-                        <span>{new Date(article.published_at).toLocaleDateString()}</span>
+                {newsArticles.map((article, index) => {
+                  const isSelected = selectedArticles.some(a => a.url === article.url)
+                  
+                  return (
+                    <div 
+                      key={index} 
+                      className={`p-3 border rounded-lg cursor-pointer transition-all hover:bg-accent ${
+                        isSelected 
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' 
+                          : 'border-border'
+                      }`}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedArticles(selectedArticles.filter(a => a.url !== article.url))
+                        } else {
+                          setSelectedArticles([...selectedArticles, article])
+                        }
+                      }}
+                    >
+                      <div className="flex gap-2">
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected}
+                          onChange={() => {}} 
+                          className="mt-0.5 cursor-pointer"
+                        />
+                        <div className="flex-1">
+                          <h4 className="text-sm font-semibold mb-1 leading-tight">
+                            {article.title}
+                          </h4>
+                          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                            {article.description}
+                          </p>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                {article.source}
+                              </Badge>
+                              <span>•</span>
+                              <span>{new Date(article.published_at).toLocaleDateString()}</span>
+                            </div>
+                            <a 
+                              href={article.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Read full →
+                            </a>
+                          </div>
+                        </div>
                       </div>
-                      <a 
-                        href={article.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Read full →
-                      </a>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
 
           <Button
             onClick={handleGenerate}
-            disabled={!pillar || !format || loading || (postType === 'trending_news' && !selectedArticle)}
+            disabled={!pillar || !format || loading || (postType === 'trending_news' && selectedArticles.length === 0)}
             className="w-full"
           >
             {loading ? (

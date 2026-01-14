@@ -52,12 +52,15 @@ class NewsService:
                 "Personal Brand": "personal branding OR professional presence OR thought leadership"
             }
             
-            # Sector filter: Weight results heavily towards mining, energy, construction (80% target)
+            # Sector filter: Weight results heavily towards mining, energy, construction (60% target)
             sector_keywords = "mining OR minerals OR energy OR construction OR extraction OR oil and gas OR mining technology OR mining operations OR renewable energy OR infrastructure OR mining equipment OR mineral resources"
             
-            # Combine pillar + sector keywords to weight search results
+            # Regional filter: Weight South America/Peru (30-40% target)
+            regional_keywords = "South America OR Latin America OR Peru OR Chile OR Brazil OR Argentina OR Colombia OR Peruvian OR Sudamerica OR Latinoamerica"
+            
+            # Combine pillar + sector + regional keywords to weight search results
             base_query = pillar_keywords.get(pillar, pillar)
-            search_query = f"({base_query}) AND ({sector_keywords})"
+            search_query = f"({base_query}) AND (({sector_keywords}) OR ({regional_keywords}))"
             
             if query:
                 search_query = f"{search_query} AND {query}"
