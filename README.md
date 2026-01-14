@@ -2,6 +2,8 @@
 
 A modern Next.js application for generating, managing, and analyzing LinkedIn posts using AI.
 
+Latest: Trending news carousel with centered content and smart bullet detection.
+
 ## Features
 
 - 🤖 **AI Post Generation**: Generate LinkedIn posts using OpenAI or Anthropic
