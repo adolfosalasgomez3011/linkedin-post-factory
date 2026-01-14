@@ -22,8 +22,6 @@ from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from reportlab.lib.utils import ImageReader
-from reportlab.graphics import renderPDF
-from svglib.svglib import svg2rlg
 import google.generativeai as genai
 import os
 import requests
