@@ -526,20 +526,67 @@ export function PostGenerator() {
                 <div className="mt-4 border rounded-lg p-4 bg-slate-50">
                   <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-blue-600" />
-                    Carousel Preview
+                    🇬🇧 English Carousel
                   </h3>
                   <iframe
                     src={(generatedPost as any).carousel_url}
                     className="w-full h-[500px] border rounded"
-                    title="Carousel Preview"
+                    title="English Carousel Preview"
                   />
                   <a
                     href={(generatedPost as any).carousel_url}
-                    download="linkedin-carousel.pdf"
+                    download="linkedin-carousel-EN.pdf"
                     className="mt-3 inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
                   >
-                    Download PDF →
+                    Download English PDF →
                   </a>
+                </div>
+              )}
+
+              {/* Spanish Carousel Preview */}
+              {(generatedPost as any).carousel_url_es && (
+                <div className="mt-4 border rounded-lg p-4 bg-slate-50">
+                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-blue-600" />
+                    🇪🇸 Spanish Carousel (Español)
+                  </h3>
+                  <iframe
+                    src={(generatedPost as any).carousel_url_es}
+                    className="w-full h-[500px] border rounded"
+                    title="Spanish Carousel Preview"
+                  />
+                  <a
+                    href={(generatedPost as any).carousel_url_es}
+                    download="linkedin-carousel-ES.pdf"
+                    className="mt-3 inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    Download Spanish PDF →
+                  </a>
+                </div>
+              )}
+
+              {/* Spanish Text Content */}
+              {(generatedPost as any).content_es && (
+                <div className="mt-4 border rounded-lg p-4 bg-amber-50">
+                  <h3 className="text-sm font-semibold mb-3 text-amber-900">
+                    🇪🇸 Spanish Version (Español)
+                  </h3>
+                  <textarea
+                    value={(generatedPost as any).content_es}
+                    readOnly
+                    className="w-full min-h-[200px] p-4 border rounded-lg resize-none bg-white"
+                  />
+                  <Button 
+                    onClick={() => {
+                      navigator.clipboard.writeText((generatedPost as any).content_es)
+                      alert('Spanish version copied!')
+                    }}
+                    variant="outline" 
+                    className="mt-2 w-full"
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy Spanish Version
+                  </Button>
                 </div>
               )}
 

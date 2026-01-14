@@ -31,6 +31,8 @@ export interface PostResponse {
   created_at: string
   status: string
   carousel_url?: string  // PDF data URI for carousel posts
+  content_es?: string    // Spanish version content
+  carousel_url_es?: string  // Spanish PDF data URI
 }
 
 export const api = {

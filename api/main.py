@@ -76,6 +76,8 @@ class PostResponse(BaseModel):
     voice_score: float
     hashtags: list[str]
     carousel_url: Optional[str] = None
+    content_es: Optional[str] = None  # Spanish version
+    carousel_url_es: Optional[str] = None  # Spanish carousel
 
 class BatchGenerateRequest(BaseModel):
     count: int = 10
@@ -278,9 +280,9 @@ This post promotes a new interactive tool/simulator.
             language_map = {
                 "english": "Write the entire post in English.",
                 "spanish": "Write the entire post in Spanish (Español).",
-                "both": "Generate TWO versions: First in English, then in Spanish. Separate them with '---SPANISH VERSION---'."
+                "both": "Write the entire post in English."  # For "both", we'll generate twice
             }
-            language_instruction = language_map.get(request.language, language_map["both"])
+            language_instruction = language_map.get(request.language, language_map["english"])
 
             # Create prompt
             prompt = f"""Generate a LinkedIn post with the following specifications:
@@ -374,11 +376,68 @@ Return ONLY the post content followed by hashtags on a new line."""
                     print(f"Warning: Carousel generation failed: {e}")
                     # Continue without carousel - user still gets text content
             
+            # If "both" languages requested, generate Spanish version
+            content_es = None
+            carousel_url_es = None
+            if request.language == "both":
+                try:
+                    # Generate Spanish version with same structure
+                    spanish_prompt = prompt.replace(
+                        "Write the entire post in English.",
+                        "Write the entire post in Spanish (Español)."
+                    )
+                    
+                    spanish_response = model.generate_content(spanish_prompt)
+                    spanish_text = spanish_response.text
+                    
+                    # Parse Spanish content
+                    spanish_lines = spanish_text.strip().split('\n')
+                    spanish_content = []
+                    spanish_hashtags = []
+                    
+                    for line in spanish_lines:
+                        if line.strip().startswith('#'):
+                            tags = [tag.strip() for tag in line.split() if tag.startswith('#')]
+                            spanish_hashtags.extend(tags)
+                        else:
+                            spanish_content.append(line)
+                    
+                    content_es = '\n'.join(spanish_content).strip()
+                    
+                    # Generate Spanish carousel if needed (REUSE same images)
+                    if request.post_type in ["carousel", "trending_news"]:
+                        spanish_slides = _parse_slides_from_content(content_es)
+                        
+                        if spanish_slides:
+                            # IMPORTANT: Reuse the same generated images from English version
+                            # This is done by media_generator caching images by visual description
+                            pdf_bytes_es = media_generator.generate_carousel_pdf(
+                                slides=spanish_slides,
+                                title=spanish_slides[0].get('title', request.pillar),
+                                theme="professional_blue",
+                                first_slide_image_url=first_slide_image
+                            )
+                            
+                            # Save Spanish PDF
+                            filename_es = filename.replace('.pdf', '_ES.pdf')
+                            local_path_es = os.path.join(output_dir, filename_es)
+                            
+                            with open(local_path_es, 'wb') as f:
+                                f.write(pdf_bytes_es)
+                            
+                            print(f"✅ Spanish carousel saved: {local_path_es}")
+                            carousel_url_es = to_data_uri(pdf_bytes_es, "application/pdf")
+                
+                except Exception as e:
+                    print(f"Warning: Spanish version generation failed: {e}")
+            
             return PostResponse(
                 content=final_content,
                 voice_score=round(voice_score, 1),
                 hashtags=hashtags[:5] if hashtags else ["#LinkedIn", "#Professional"],
-                carousel_url=carousel_url
+                carousel_url=carousel_url,
+                content_es=content_es,
+                carousel_url_es=carousel_url_es
             )
         
         else:
