@@ -63,12 +63,10 @@ class NewsService:
             "sortBy": "popularity",  # Most viral
             "language": "en",
             "apiKey": self.api_key,
-            "pageSize": 50  # Get many to ensure source diversity
+            "pageSize": 100  # Get many articles from all sources for diversity
         }
         
-        # Add sources filter if available
-        if self.trusted_sources:
-            params["sources"] = ",".join(self.trusted_sources)
+        # Don't filter by sources - get from all reputable sources for broader coverage
         
         try:
             response = requests.get(f"{self.base_url}/everything", params=params, timeout=10)
@@ -81,8 +79,11 @@ class NewsService:
             results = []
             source_count = {}
             
+            # First pass: strict diversity (max 2 per source, require image)
             for article in articles:
-                # Skip if no image
+                if len(results) >= max_results:
+                    break
+                    
                 if not article.get("urlToImage"):
                     continue
                 
@@ -103,10 +104,29 @@ class NewsService:
                 })
                 
                 source_count[source_name] = source_count.get(source_name, 0) + 1
-                
-                # Stop when we have enough results
-                if len(results) >= max_results:
-                    break
+            
+            # Second pass: if we don't have enough, relax constraints
+            if len(results) < max_results:
+                for article in articles:
+                    if len(results) >= max_results:
+                        break
+                    
+                    # Skip if already added
+                    if article.get("url") in [r["url"] for r in results]:
+                        continue
+                    
+                    # Accept articles without images if needed
+                    source_name = article.get("source", {}).get("name", "Unknown")
+                    
+                    results.append({
+                        "title": article.get("title", ""),
+                        "description": article.get("description", ""),
+                        "url": article.get("url", ""),
+                        "image_url": article.get("urlToImage", ""),
+                        "source": source_name,
+                        "published_at": article.get("publishedAt", ""),
+                        "author": article.get("author", "")
+                    })
             
             return results
         

@@ -372,29 +372,20 @@ export function PostGenerator() {
             </div>
           )}
 
-          <div className="flex gap-2">
-            <Button
-              onClick={handleGenerate}
-              disabled={!pillar || !format || loading || (postType === 'trending_news' && !selectedArticle)}
-              className="flex-1"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                'Generate Post'
-              )}
-            </Button>
-            <Button
-              onClick={handleBatchGenerate}
-              variant="outline"
-              disabled={loading}
-            >
-              Batch (10)
-            </Button>
-          </div>
+          <Button
+            onClick={handleGenerate}
+            disabled={!pillar || !format || loading || (postType === 'trending_news' && !selectedArticle)}
+            className="w-full"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              'Generate Post'
+            )}
+          </Button>
         </CardContent>
       </Card>
 
