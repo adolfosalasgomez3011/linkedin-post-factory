@@ -88,7 +88,7 @@ export function PostGenerator() {
         body: JSON.stringify({
           pillar: pillar,
           query: topic || undefined,
-          max_results: 5
+          max_results: 10
         })
       })
 
@@ -333,42 +333,40 @@ export function PostGenerator() {
 
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {newsArticles.map((article, index) => (
-                  <Card 
+                  <div 
                     key={index} 
-                    className={`cursor-pointer transition-all hover:shadow-md ${
+                    className={`p-3 border rounded-lg cursor-pointer transition-all hover:bg-accent ${
                       selectedArticle?.url === article.url 
-                        ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50' 
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' 
                         : 'border-border'
                     }`}
                     onClick={() => setSelectedArticle(article)}
                   >
-                    <CardContent className="p-3">
-                      <div className="flex gap-3">
-                        {article.image_url && (
-                          <img 
-                            src={article.image_url} 
-                            alt={article.title}
-                            className="w-20 h-20 object-cover rounded"
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-semibold line-clamp-2 mb-1">
-                            {article.title}
-                          </h4>
-                          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                            {article.description}
-                          </p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Badge variant="secondary" className="text-xs">
-                              {article.source}
-                            </Badge>
-                            <span>•</span>
-                            <span>{new Date(article.published_at).toLocaleDateString()}</span>
-                          </div>
-                        </div>
+                    <h4 className="text-sm font-semibold mb-1 leading-tight">
+                      {article.title}
+                    </h4>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                      {article.description}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          {article.source}
+                        </Badge>
+                        <span>•</span>
+                        <span>{new Date(article.published_at).toLocaleDateString()}</span>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <a 
+                        href={article.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Read full →
+                      </a>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>

@@ -63,7 +63,7 @@ class NewsService:
             "sortBy": "popularity",  # Most viral
             "language": "en",
             "apiKey": self.api_key,
-            "pageSize": max_results * 2  # Get extra to filter
+            "pageSize": 50  # Get many to ensure source diversity
         }
         
         # Add sources filter if available
@@ -77,11 +77,19 @@ class NewsService:
             
             articles = data.get("articles", [])
             
-            # Filter and format
+            # Filter and format with source diversity
             results = []
-            for article in articles[:max_results]:
+            source_count = {}
+            
+            for article in articles:
                 # Skip if no image
                 if not article.get("urlToImage"):
+                    continue
+                
+                source_name = article.get("source", {}).get("name", "Unknown")
+                
+                # Limit articles per source to ensure diversity (max 2 per source)
+                if source_count.get(source_name, 0) >= 2:
                     continue
                 
                 results.append({
@@ -89,10 +97,16 @@ class NewsService:
                     "description": article.get("description", ""),
                     "url": article.get("url", ""),
                     "image_url": article.get("urlToImage", ""),
-                    "source": article.get("source", {}).get("name", "Unknown"),
+                    "source": source_name,
                     "published_at": article.get("publishedAt", ""),
                     "author": article.get("author", "")
                 })
+                
+                source_count[source_name] = source_count.get(source_name, 0) + 1
+                
+                # Stop when we have enough results
+                if len(results) >= max_results:
+                    break
             
             return results
         
