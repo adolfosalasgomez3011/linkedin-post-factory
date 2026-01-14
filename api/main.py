@@ -792,21 +792,27 @@ Slides to translate:
 
 Return ONLY a JSON array of the translated slides in the exact same format."""
                 
+                print(f"🔄 Translating slides to Spanish...")
                 translation_response = model.generate_content(translation_prompt)
                 spanish_slides_text = translation_response.text.strip()
+                
+                print(f"📝 Translation response: {spanish_slides_text[:200]}...")
                 
                 # Clean markdown code blocks if present
                 if spanish_slides_text.startswith('```'):
                     spanish_slides_text = spanish_slides_text.split('```')[1]
                     if spanish_slides_text.startswith('json'):
                         spanish_slides_text = spanish_slides_text[4:]
+                    spanish_slides_text = spanish_slides_text.strip()
                 
                 spanish_slides = json.loads(spanish_slides_text)
+                print(f"✅ Parsed {len(spanish_slides)} Spanish slides")
                 
                 # Generate Spanish PDF (reuses cached images via visual descriptions)
+                print(f"🎨 Generating Spanish PDF...")
                 pdf_bytes_es = media_generator.generate_carousel_pdf(
                     slides=spanish_slides,
-                    title=request.title,  # Will be in Spanish from translation
+                    title=spanish_slides[0].get('title', request.title) if spanish_slides else request.title,
                     theme=request.theme or "professional_blue",
                     first_slide_image_url=request.first_slide_image_url
                 )
@@ -839,9 +845,13 @@ Return ONLY a JSON array of the translated slides in the exact same format."""
                 
                 if not url_es:
                     url_es = to_data_uri(pdf_bytes_es, "application/pdf")
+                    print(f"✅ Spanish data URI generated (length: {len(url_es)})")
                     
             except Exception as e:
-                print(f"Warning: Spanish carousel generation failed: {e}")
+                print(f"❌ ERROR: Spanish carousel generation failed: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                # Don't fail the whole request, just skip Spanish version
         
         # If Spanish-only was requested, move Spanish to main response
         if request.language == "spanish":
