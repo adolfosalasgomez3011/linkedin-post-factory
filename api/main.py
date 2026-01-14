@@ -210,6 +210,55 @@ async def health_check():
 
 
 # ============================================
+# NEWS ENDPOINTS
+# ============================================
+
+from api.services.news_service import news_service
+
+class NewsSearchRequest(BaseModel):
+    pillar: Optional[str] = None
+    query: Optional[str] = None
+    max_results: int = 5
+
+@app.post("/news/search")
+async def search_news(request: NewsSearchRequest):
+    """
+    Search for trending news articles
+    
+    Returns top 5 most viral articles from reputable sources
+    """
+    try:
+        articles = news_service.search_trending_news(
+            query=request.query or "",
+            pillar=request.pillar,
+            max_results=request.max_results
+        )
+        
+        return {
+            "articles": articles,
+            "count": len(articles)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"News search failed: {str(e)}")
+
+@app.get("/news/top-headlines")
+async def get_top_headlines(category: str = "technology", max_results: int = 5):
+    """Get top headlines by category"""
+    try:
+        articles = news_service.get_top_headlines(
+            category=category,
+            max_results=max_results
+        )
+        
+        return {
+            "articles": articles,
+            "count": len(articles)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch headlines: {str(e)}")
+
+
+# ============================================
 # MEDIA GENERATION ENDPOINTS
 # ============================================
 

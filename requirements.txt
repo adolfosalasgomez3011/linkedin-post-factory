@@ -19,3 +19,4 @@ qrcode>=8.0
 pillow>=11.0.0
 pygments>=2.15.0
 kaleido>=0.2.1
+requests>=2.31.0
