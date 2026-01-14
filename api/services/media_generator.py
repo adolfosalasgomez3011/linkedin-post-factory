@@ -759,10 +759,7 @@ class MediaGenerator:
                     if not line:
                         continue
                     
-                    # Check if this line starts with a bullet marker
-                    has_bullet = bool(re.match(r'^[•\-\*]\s*', line) or re.match(r'^\d+\.\s*', line))
-                    
-                    # Remove bullet markers
+                    # Remove bullet markers if present
                     line = re.sub(r'^[•\-\*]\s*', '', line)  # Remove • - * at start
                     line = re.sub(r'^\d+\.\s*', '', line)    # Remove 1. 2. etc at start
                     
@@ -770,7 +767,8 @@ class MediaGenerator:
                     if line.lower() == slide_title.lower():
                         continue
                     
-                    # Wrap long lines, tracking which are bullet starts
+                    # Each new line from the content is a bullet point (first line of that point)
+                    # Only wrapped continuation lines should NOT get a bullet marker
                     if len(line) > max_chars_per_line:
                         words = line.split()
                         current_line = ""
@@ -782,19 +780,19 @@ class MediaGenerator:
                                 if current_line:
                                     bullet_points.append({
                                         'text': current_line.strip(),
-                                        'is_bullet_start': is_first_line and has_bullet
+                                        'is_bullet_start': is_first_line  # First line = bullet start
                                     })
                                     is_first_line = False
                                 current_line = word + " "
                         if current_line.strip():
                             bullet_points.append({
                                 'text': current_line.strip(),
-                                'is_bullet_start': is_first_line and has_bullet
+                                'is_bullet_start': is_first_line  # First line = bullet start
                             })
                     else:
                         bullet_points.append({
                             'text': line,
-                            'is_bullet_start': has_bullet
+                            'is_bullet_start': True  # Every new line gets a bullet marker
                         })
 
             # Start text position BELOW the image area
