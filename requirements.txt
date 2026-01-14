@@ -11,3 +11,9 @@ supabase==2.27.1
 supabase-auth==2.27.1
 supabase-functions==2.27.1
 uvicorn==0.34.0
+matplotlib>=3.9.0
+plotly>=5.24.0
+pandas>=2.2.0
+seaborn>=0.13.0
+qrcode>=8.0
+pillow>=11.0.0
