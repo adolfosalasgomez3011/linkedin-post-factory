@@ -38,6 +38,12 @@ const FORMATS = [
   'Case Study'
 ]
 
+const LANGUAGES = [
+  { value: 'english', label: '🇬🇧 English' },
+  { value: 'spanish', label: '🇪🇸 Español' },
+  { value: 'both', label: '🌐 Both Languages' }
+]
+
 interface NewsArticle {
   title: string
   description: string
@@ -54,6 +60,7 @@ export function PostGenerator() {
   const [postType, setPostType] = useState('standard')
   const [format, setFormat] = useState('')
   const [topic, setTopic] = useState('')
+  const [language, setLanguage] = useState('both')
   const [provider] = useState('gemini')
   const [loading, setLoading] = useState(false)
   const [generatedPost, setGeneratedPost] = useState<PostResponse | null>(null)
@@ -121,7 +128,8 @@ export function PostGenerator() {
         format_type: format,
         topic: topic || undefined,
         provider,
-        news_article: newsArticle
+        news_article: newsArticle,
+        language: language
       })
       
       console.log('API Result:', result)
@@ -316,6 +324,27 @@ export function PostGenerator() {
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Language *</label>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select language" />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGES.map((lang) => (
+                  <SelectItem key={lang.value} value={lang.value}>
+                    {lang.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {language === 'both' && (
+              <p className="text-xs text-muted-foreground">
+                Generates English and Spanish versions separately
+              </p>
+            )}
           </div>
 
           {/* News Article Selection */}

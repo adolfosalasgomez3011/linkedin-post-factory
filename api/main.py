@@ -68,6 +68,7 @@ class PostRequest(BaseModel):
     format_type: str
     topic: Optional[str] = None
     provider: str = "gemini"
+    language: Optional[str] = "both"  # english, spanish, or both
     news_article: Optional[NewsArticle] = None
 
 class PostResponse(BaseModel):
@@ -273,6 +274,14 @@ This post promotes a new interactive tool/simulator.
 - Explicit Call-to-Action: "Try the simulator at the link below" or "Comment for access"
 """
 
+            # Create language instruction
+            language_map = {
+                "english": "Write the entire post in English.",
+                "spanish": "Write the entire post in Spanish (Español).",
+                "both": "Generate TWO versions: First in English, then in Spanish. Separate them with '---SPANISH VERSION---'."
+            }
+            language_instruction = language_map.get(request.language, language_map["both"])
+
             # Create prompt
             prompt = f"""Generate a LinkedIn post with the following specifications:
 
@@ -281,9 +290,12 @@ Post Type: {request.post_type}
 Format: {request.format_type}
 Topic: {request.topic}
 
+LANGUAGE REQUIREMENT:
+{language_instruction}
+
 Requirements:
 - Write in a professional yet engaging tone
-- Keep it concise (under 1300 characters)
+- Keep it concise (under 1300 characters per version)
 - Use line breaks for readability
 - Include relevant hashtags (3-5)
 - Make it authentic and valuable

@@ -6,6 +6,7 @@ export interface GeneratePostRequest {
   format_type: string
   topic?: string
   provider?: string
+  language?: string
   news_article?: {
     title: string
     description: string
