@@ -46,12 +46,21 @@ class NewsService:
         if pillar:
             pillar_keywords = {
                 "AI & Innovation": "artificial intelligence OR machine learning OR AI OR innovation",
-                "Leadership": "leadership OR management OR business strategy",
+                "Tech Leadership": "leadership OR management OR business strategy OR technology leadership",
                 "Career Growth": "career OR professional development OR job market",
-                "Tech & Tools": "technology OR software OR tools OR apps",
-                "Mining Industry": "mining OR minerals OR mining technology OR mining operations OR extraction OR ore OR mineral resources OR mining equipment"
+                "Industry Insights": "industry trends OR market analysis OR business insights",
+                "Personal Brand": "personal branding OR professional presence OR thought leadership"
             }
-            search_query = pillar_keywords.get(pillar, query) if not query else query
+            
+            # Sector filter: Weight results heavily towards mining, energy, construction (80% target)
+            sector_keywords = "mining OR minerals OR energy OR construction OR extraction OR oil and gas OR mining technology OR mining operations OR renewable energy OR infrastructure OR mining equipment OR mineral resources"
+            
+            # Combine pillar + sector keywords to weight search results
+            base_query = pillar_keywords.get(pillar, pillar)
+            search_query = f"({base_query}) AND ({sector_keywords})"
+            
+            if query:
+                search_query = f"{search_query} AND {query}"
         else:
             search_query = query
         
