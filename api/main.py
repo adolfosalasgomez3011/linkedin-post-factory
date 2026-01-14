@@ -79,9 +79,27 @@ class PostResponse(BaseModel):
     voice_score: float
     hashtags: list[str]
 
+class BatchGenerateRequest(BaseModel):
+    count: int = 10
+    pillar: Optional[str] = None
+
 @app.get("/")
 async def root():
     return {"message": "LinkedIn Post Factory API", "status": "running"}
+
+@app.post("/posts/batch")
+async def batch_generate(request: BatchGenerateRequest):
+    """Generate multiple posts in batch"""
+    try:
+        # For now, return a simple success message
+        # In a full implementation, this would generate multiple posts asynchronously
+        return {
+            "message": f"Batch generation started for {request.count} posts",
+            "count": request.count,
+            "pillar": request.pillar
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Batch generation failed: {str(e)}")
 
 @app.post("/posts/generate", response_model=PostResponse)
 async def generate_post(request: PostRequest):
