@@ -843,14 +843,20 @@ Return ONLY a JSON array of the translated slides in the exact same format."""
             except Exception as e:
                 print(f"Warning: Spanish carousel generation failed: {e}")
         
+        # If Spanish-only was requested, move Spanish to main response
+        if request.language == "spanish":
+            url = url_es
+            filename = filename_es
+            local_path = local_path_es
+        
         return {
             "success": True,
             "url": url,
             "filename": filename,
             "local_path": local_path,
-            "url_es": url_es,
-            "filename_es": filename_es,
-            "local_path_es": local_path_es,
+            "url_es": url_es if request.language == "both" else None,
+            "filename_es": filename_es if request.language == "both" else None,
+            "local_path_es": local_path_es if request.language == "both" else None,
             "type": "carousel"
         }
         
