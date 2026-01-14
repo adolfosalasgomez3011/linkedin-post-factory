@@ -825,29 +825,49 @@ class MediaGenerator:
                 # Limit bullets to fit on page without overlap
                 max_lines = min(len(bullet_points), 10)  # Max 10 lines to avoid crowding
                 
-                # Left-aligned bullets with beautiful style
-                bullet_x_start = 80  # Left margin for bullet
-                text_x_start = 110   # Text starts after bullet
-                continuation_x_start = 110  # Continuation lines align with bullet text
-                cover_text_x_start = 80  # Cover slide text starts at left margin (no bullets)
+                # Calculate center position for bullets
+                page_center = page_width / 2
+                
+                # For centered bullets, we need to calculate the starting position
+                # based on the longest line to keep everything centered
+                max_text_width = 0
+                c.setFont("Helvetica", 16)
+                for item in bullet_points[:max_lines]:
+                    text_width = c.stringWidth(item['text'], "Helvetica", 16)
+                    max_text_width = max(max_text_width, text_width)
+                
+                # Center the content block
+                # Add space for bullet marker (30px) if not cover slide
+                bullet_marker_width = 30 if not is_cover_slide else 0
+                content_width = max_text_width + bullet_marker_width
+                content_start_x = (page_width - content_width) / 2
+                
+                bullet_x_start = content_start_x  # Bullet marker position
+                text_x_start = content_start_x + bullet_marker_width  # Text starts after bullet
+                cover_text_x_start = page_center  # Cover slide text centered
                 
                 for i, item in enumerate(bullet_points[:max_lines]):
                     # Cover slide (first slide) shows text without bullets for cleaner look
                     if is_cover_slide:
-                        x_pos = cover_text_x_start
-                    # Only draw bullet marker if this is the start of a bullet point
-                    elif item['is_bullet_start']:
-                        c.setFillColor(accent_color)
-                        c.circle(bullet_x_start, text_start_y + 5, 4, fill=1, stroke=0)
-                        x_pos = text_x_start
+                        # Center align text for cover slide
+                        c.setFillColor(text_color)
+                        c.setFont("Helvetica", 16)
+                        c.drawCentredString(cover_text_x_start, text_start_y, item['text'])
                     else:
-                        # Continuation line - indent to align with bullet text
-                        x_pos = continuation_x_start
+                        # Only draw bullet marker if this is the start of a bullet point
+                        if item['is_bullet_start']:
+                            c.setFillColor(accent_color)
+                            c.circle(bullet_x_start, text_start_y + 5, 4, fill=1, stroke=0)
+                            x_pos = text_x_start
+                        else:
+                            # Continuation line - indent to align with bullet text
+                            x_pos = text_x_start
+                        
+                        # Draw text
+                        c.setFillColor(text_color)
+                        c.setFont("Helvetica", 16)
+                        c.drawString(x_pos, text_start_y, item['text'])
                     
-                    # Draw text
-                    c.setFillColor(text_color)
-                    c.setFont("Helvetica", 16)
-                    c.drawString(x_pos, text_start_y, item['text'])
                     text_start_y -= line_spacing
             
             # Add subtle branded footer text
