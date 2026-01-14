@@ -258,9 +258,11 @@ function EngagementSimulation({ post }: { post: Post }) {
 function VisualizationPanel({ post }: { post: Post }) {
   const [generating, setGenerating] = useState(false)
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
+  const [generatedUrlEs, setGeneratedUrlEs] = useState<string | null>(null)
   const [generatedType, setGeneratedType] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [carouselTheme, setCarouselTheme] = useState('professional_blue')
+  const [language, setLanguage] = useState('both')
 
   const generateVisual = async (type: string) => {
     setGenerating(true)
@@ -348,6 +350,7 @@ function VisualizationPanel({ post }: { post: Post }) {
             title: post.topic || 'In-Depth Carousel',
             pillar: post.pillar || 'General',
             theme: carouselTheme,
+            language: language,
             slides: slides.length > 0 ? slides : [
                 { title: 'Introduction', content: 'Carousel content based on your post.' },
                 { title: 'Key Insight', content: 'Detailed analysis of the topic.' },
@@ -390,6 +393,7 @@ function VisualizationPanel({ post }: { post: Post }) {
       
       if (result.url) {
         setGeneratedUrl(result.url)
+        setGeneratedUrlEs(result.url_es || null)
         
         // If we got a filename, trigger download with that name
         if (result.filename && type === 'carousel') {
@@ -399,6 +403,16 @@ function VisualizationPanel({ post }: { post: Post }) {
           document.body.appendChild(link)
           link.click()
           document.body.removeChild(link)
+          
+          // Download Spanish version if available
+          if (result.url_es && result.filename_es) {
+            const linkEs = document.createElement('a')
+            linkEs.href = result.url_es
+            linkEs.download = result.filename_es
+            document.body.appendChild(linkEs)
+            linkEs.click()
+            document.body.removeChild(linkEs)
+          }
         }
       } else {
         throw new Error('No URL returned from API')
@@ -437,6 +451,26 @@ function VisualizationPanel({ post }: { post: Post }) {
         </Select>
         <p className="text-xs text-blue-600 mt-2">
           Choose a color theme for your carousel. Preview updates when you generate!
+        </p>
+      </div>
+
+      {/* Language Selector */}
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <label className="text-sm font-medium text-amber-900 mb-2 block">
+          🌐 Language
+        </label>
+        <Select value={language} onValueChange={setLanguage}>
+          <SelectTrigger className="bg-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="english">🇬🇧 English</SelectItem>
+            <SelectItem value="spanish">🇪🇸 Español</SelectItem>
+            <SelectItem value="both">🌐 Both Languages</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-amber-600 mt-2">
+          Select "Both" to generate separate carousels for English and Spanish.
         </p>
       </div>
 
@@ -512,7 +546,7 @@ function VisualizationPanel({ post }: { post: Post }) {
       )}
 
       {generatedUrl && (
-        <div className="bg-slate-100 rounded-lg p-4">
+        <div className="bg-slate-100 rounded-lg p-4 space-y-4">
           <p className="text-sm font-medium mb-2">✅ Visual asset generated!</p>
           
           {(generatedUrl.startsWith('data:text/html') || generatedUrl.endsWith('.html')) ? (
@@ -541,15 +575,29 @@ function VisualizationPanel({ post }: { post: Post }) {
             <img src={generatedUrl} alt="Generated visual" className="w-full rounded-lg border" />
           )}
 
-          <a
-            href={generatedUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            download={generatedType === 'carousel' ? "linkedin-carousel.pdf" : undefined}
-            className="text-sm text-blue-600 hover:underline mt-2 inline-block"
-          >
-            {generatedType === 'carousel' ? 'Download PDF ↓' : 'Open Link / Download →'}
-          </a>
+          <div className="flex gap-4">
+            <a
+              href={generatedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              download={generatedType === 'carousel' ? "linkedin-carousel-en.pdf" : undefined}
+              className="text-sm text-blue-600 hover:underline inline-block"
+            >
+              {generatedType === 'carousel' ? '🇬🇧 Download English PDF ↓' : 'Open Link / Download →'}
+            </a>
+            
+            {generatedUrlEs && generatedType === 'carousel' && (
+              <a
+                href={generatedUrlEs}
+                target="_blank"
+                rel="noopener noreferrer"
+                download="linkedin-carousel-es.pdf"
+                className="text-sm text-amber-600 hover:underline inline-block"
+              >
+                🇪🇸 Download Spanish PDF ↓
+              </a>
+            )}
+          </div>
         </div>
       )}
     </div>

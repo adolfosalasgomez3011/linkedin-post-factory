@@ -4,6 +4,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 import os
+import json
 from dotenv import load_dotenv
 import google.generativeai as genai
 from supabase import create_client, Client
@@ -550,6 +551,7 @@ class CarouselRequest(BaseModel):
     title: str
     pillar: Optional[str] = "General"  # Content pillar for naming (Leadership, Tech, Growth, etc.)
     theme: Optional[str] = "professional_blue"  # Color theme (professional_blue, elegant_dark, modern_purple, etc.)
+    language: Optional[str] = "both"  # Language: english, spanish, or both
     post_id: Optional[str] = None
     save_to_storage: bool = True
     first_slide_image_url: Optional[str] = None  # External image URL for first slide (e.g., news article image)
@@ -722,64 +724,131 @@ async def generate_qrcode(request: QRCodeRequest):
 
 @app.post("/media/generate-carousel")
 async def generate_carousel(request: CarouselRequest):
-    """Generate PDF carousel"""
+    """Generate PDF carousel (English, Spanish, or both)"""
     try:
-        pdf_bytes = media_generator.generate_carousel_pdf(
-            slides=request.slides,
-            title=request.title,
-            theme=request.theme or "professional_blue",
-            first_slide_image_url=request.first_slide_image_url
-        )
+        # Determine which languages to generate
+        should_generate_english = request.language in ["english", "both"]
+        should_generate_spanish = request.language in ["spanish", "both"]
         
-        # Create smart filename: ShortTitle_Pillar_DateShort
-        from datetime import datetime
-        import re
-        
-        # Clean title - take first 3-4 words, remove special chars
-        title_words = request.title.split()[:3]
-        short_title = "".join([re.sub(r'[^A-Za-z0-9]', '', word).capitalize() for word in title_words])
-        
-        # Pillar code
-        pillar_code = re.sub(r'[^A-Za-z0-9]', '', request.pillar or "General")
-        
-        # Date: Jan13 format
-        date_str = datetime.now().strftime("%b%d")
-        
-        # Final filename
-        filename = f"{short_title}_{pillar_code}_{date_str}.pdf"
-        
-        # Save locally to GeneratedCarousels folder
-        output_dir = os.path.join(os.getcwd(), "GeneratedCarousels")
-        os.makedirs(output_dir, exist_ok=True)
-        
-        local_path = os.path.join(output_dir, filename)
-        with open(local_path, 'wb') as f:
-            f.write(pdf_bytes)
-        
-        print(f"✅ Carousel saved: {local_path}")
-        
+        # English generation
         url = None
-        if request.save_to_storage and storage_service and request.post_id:
-            try:
-                url = storage_service.upload_media(
-                    pdf_bytes,
-                    request.post_id,
-                    "carousel",
-                    "pdf"
-                )
-            except Exception as e:
-                print(f"Storage upload failed: {e}")
-
-        if not url:
-            url = to_data_uri(pdf_bytes, "application/pdf")
+        filename = None
+        local_path = None
+        
+        if should_generate_english:
+            pdf_bytes = media_generator.generate_carousel_pdf(
+                slides=request.slides,
+                title=request.title,
+                theme=request.theme or "professional_blue",
+                first_slide_image_url=request.first_slide_image_url
+            )
             
+            # Create smart filename
+            from datetime import datetime
+            import re
+            
+            title_words = request.title.split()[:3]
+            short_title = "".join([re.sub(r'[^A-Za-z0-9]', '', word).capitalize() for word in title_words])
+            pillar_code = re.sub(r'[^A-Za-z0-9]', '', request.pillar or "General")
+            date_str = datetime.now().strftime("%b%d")
+            
+            filename = f"{short_title}_{pillar_code}_{date_str}_EN.pdf"
+            
+            # Save locally
+            output_dir = os.path.join(os.getcwd(), "GeneratedCarousels")
+            os.makedirs(output_dir, exist_ok=True)
+            
+            local_path = os.path.join(output_dir, filename)
+            with open(local_path, 'wb') as f:
+                f.write(pdf_bytes)
+            
+            print(f"✅ English carousel saved: {local_path}")
+            
+            if request.save_to_storage and storage_service and request.post_id:
+                try:
+                    url = storage_service.upload_media(pdf_bytes, request.post_id, "carousel", "pdf")
+                except Exception as e:
+                    print(f"Storage upload failed: {e}")
+            
+            if not url:
+                url = to_data_uri(pdf_bytes, "application/pdf")
+        
+        # Spanish generation
+        url_es = None
+        filename_es = None
+        local_path_es = None
+        
+        if should_generate_spanish:
+            # Translate slides to Spanish using Gemini
+            try:
+                translation_prompt = f"""Translate these carousel slides to Spanish (Español). 
+Maintain the same structure and formatting. Keep technical terms appropriate for a professional Spanish-speaking audience.
+
+Slides to translate:
+{json.dumps(request.slides, indent=2)}
+
+Return ONLY a JSON array of the translated slides in the exact same format."""
+                
+                translation_response = model.generate_content(translation_prompt)
+                spanish_slides_text = translation_response.text.strip()
+                
+                # Clean markdown code blocks if present
+                if spanish_slides_text.startswith('```'):
+                    spanish_slides_text = spanish_slides_text.split('```')[1]
+                    if spanish_slides_text.startswith('json'):
+                        spanish_slides_text = spanish_slides_text[4:]
+                
+                spanish_slides = json.loads(spanish_slides_text)
+                
+                # Generate Spanish PDF (reuses cached images via visual descriptions)
+                pdf_bytes_es = media_generator.generate_carousel_pdf(
+                    slides=spanish_slides,
+                    title=request.title,  # Will be in Spanish from translation
+                    theme=request.theme or "professional_blue",
+                    first_slide_image_url=request.first_slide_image_url
+                )
+                
+                # Create filename
+                from datetime import datetime
+                import re
+                
+                title_words = request.title.split()[:3]
+                short_title = "".join([re.sub(r'[^A-Za-z0-9]', '', word).capitalize() for word in title_words])
+                pillar_code = re.sub(r'[^A-Za-z0-9]', '', request.pillar or "General")
+                date_str = datetime.now().strftime("%b%d")
+                
+                filename_es = f"{short_title}_{pillar_code}_{date_str}_ES.pdf"
+                
+                # Save locally
+                output_dir = os.path.join(os.getcwd(), "GeneratedCarousels")
+                local_path_es = os.path.join(output_dir, filename_es)
+                
+                with open(local_path_es, 'wb') as f:
+                    f.write(pdf_bytes_es)
+                
+                print(f"✅ Spanish carousel saved: {local_path_es}")
+                
+                if request.save_to_storage and storage_service and request.post_id:
+                    try:
+                        url_es = storage_service.upload_media(pdf_bytes_es, request.post_id, "carousel", "pdf")
+                    except Exception as e:
+                        print(f"Storage upload failed: {e}")
+                
+                if not url_es:
+                    url_es = to_data_uri(pdf_bytes_es, "application/pdf")
+                    
+            except Exception as e:
+                print(f"Warning: Spanish carousel generation failed: {e}")
+        
         return {
-            "success": True, 
+            "success": True,
             "url": url,
-            "filename": filename, 
-            "type": "carousel",
             "filename": filename,
-            "local_path": local_path
+            "local_path": local_path,
+            "url_es": url_es,
+            "filename_es": filename_es,
+            "local_path_es": local_path_es,
+            "type": "carousel"
         }
         
     except Exception as e:
