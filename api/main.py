@@ -197,49 +197,48 @@ async def generate_post(request: PostRequest):
                     )
                 
                 type_instructions = f"""
-TRENDING NEWS COMMENTARY FORMAT:
-You are creating a LinkedIn carousel post that comments on this trending news article:
+TRENDING NEWS COMMENTARY - CAROUSEL FORMAT:
 
-Article Title: {request.news_article.title}
+Article: {request.news_article.title}
 Source: {request.news_article.source}
-Published: {request.news_article.published_at}
 Description: {request.news_article.description}
-Article URL: {request.news_article.url}
 
-CREATE EXACTLY 4 SLIDES using this format:
+Generate EXACTLY 4 slides. Each slide MUST follow this EXACT 3-section structure:
+
+Title Line (one punchy line)
+(Visual: brief description)
+Body content (actual insights, not placeholders)
+
+EXAMPLE of correct format:
 
 SLIDE 1:
-[Write an engaging, short headline version of the news - make it punchy and attention-grabbing]
+AI Breakthrough Reshapes Mining Industry
 (Visual: news)
-[Write one powerful sentence about why this news matters to professionals]
+This technology could reduce operational costs by 40% while improving safety standards across South American operations.
 
 SLIDE 2:
 What This Means
-(Visual: analysis concept)
-• [First key insight about the implications]
-• [Second key insight or impact]
-• [Third insight if needed]
+(Visual: impact analysis)
+• Mining companies gain competitive edge through automation
+• Safety protocols enhanced with real-time AI monitoring
+• Cost efficiency creates opportunities for smaller operators
 
 SLIDE 3:
 My Take
-(Visual: expert opinion concept)
-• [Your first bold professional perspective]
-• [Your second opinion or prediction]
-• [Your third thought on what professionals should do]
+(Visual: expert perspective)
+• This isn't just about efficiency - it's about survival in a changing market
+• Companies not adopting AI risk obsolescence within 3 years
+• Peru and Chile are positioned to lead this transformation in Latin America
 
 SLIDE 4:
 What's Next?
-(Visual: future concept)
-[Call to action - what should readers do or think about?]
+(Visual: future outlook)
+Time to evaluate AI readiness in your operations. The early adopters will dominate the next decade.
 
 📰 Source: {request.news_article.source}
-🔗 Read more at: {request.news_article.url}
+🔗 {request.news_article.url}
 
-IMPORTANT:
-- Write ACTUAL content, not placeholders or labels
-- Each slide needs Title, (Visual: ...), and Body
-- Be insightful and professional, not just factual
-- Make it valuable for the reader
+NOW generate your 4 slides about the actual news article. Use real content, not examples or placeholders.
 """
             elif request.post_type == "carousel":
                 type_instructions = """
