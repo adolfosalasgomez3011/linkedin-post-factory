@@ -746,13 +746,12 @@ class MediaGenerator:
             if not content or content.lower() == slide_title.lower():
                 content = ""
             
-            # Split into bullet points
-            max_chars_per_line = 45  # Slightly shorter for bullets
-            bullet_points = []
+            # Split into bullet points with proper wrapping
+            max_chars_per_line = 50  # Characters per line
+            bullet_points = []  # Each item: {'text': str, 'is_bullet_start': bool}
             
             if content:
-                # Split ONLY by bullet markers (• or numbered lists like 1., 2.)
-                # Do NOT split by periods or newlines - those are part of the content
+                # Split ONLY by actual bullet markers or newlines that start with bullets
                 lines = content.split('\n')
                 
                 for line in lines:
@@ -760,7 +759,10 @@ class MediaGenerator:
                     if not line:
                         continue
                     
-                    # Remove bullet markers if present
+                    # Check if this line starts with a bullet marker
+                    has_bullet = bool(re.match(r'^[•\-\*]\s*', line) or re.match(r'^\d+\.\s*', line))
+                    
+                    # Remove bullet markers
                     line = re.sub(r'^[•\-\*]\s*', '', line)  # Remove • - * at start
                     line = re.sub(r'^\d+\.\s*', '', line)    # Remove 1. 2. etc at start
                     
@@ -768,21 +770,32 @@ class MediaGenerator:
                     if line.lower() == slide_title.lower():
                         continue
                     
-                    # Wrap long lines
+                    # Wrap long lines, tracking which are bullet starts
                     if len(line) > max_chars_per_line:
                         words = line.split()
                         current_line = ""
+                        is_first_line = True
                         for word in words:
                             if len(current_line) + len(word) + 1 <= max_chars_per_line:
                                 current_line += (word + " ")
                             else:
                                 if current_line:
-                                    bullet_points.append(current_line.strip())
+                                    bullet_points.append({
+                                        'text': current_line.strip(),
+                                        'is_bullet_start': is_first_line and has_bullet
+                                    })
+                                    is_first_line = False
                                 current_line = word + " "
                         if current_line.strip():
-                            bullet_points.append(current_line.strip())
+                            bullet_points.append({
+                                'text': current_line.strip(),
+                                'is_bullet_start': is_first_line and has_bullet
+                            })
                     else:
-                        bullet_points.append(line)
+                        bullet_points.append({
+                            'text': line,
+                            'is_bullet_start': has_bullet
+                        })
 
             # Start text position BELOW the image area
             # Image ends at: page_height - 380 (top) - 300 (height) = page_height - 680
@@ -794,25 +807,31 @@ class MediaGenerator:
             
             # Only show bullets if we have content
             if bullet_points:
-                # Fixed spacing to prevent overlap (was dynamic and caused issues)
+                # Fixed spacing to prevent overlap
                 line_spacing = 28  # Fixed spacing for readability
                 
                 # Limit bullets to fit on page without overlap
-                max_bullets = min(len(bullet_points), 8)  # Max 8 lines to avoid crowding
+                max_lines = min(len(bullet_points), 10)  # Max 10 lines to avoid crowding
                 
                 # Left-aligned bullets with beautiful style
                 bullet_x_start = 80  # Left margin for bullet
                 text_x_start = 110   # Text starts after bullet
+                continuation_x_start = 110  # Continuation lines align with bullet text
                 
-                for i, point in enumerate(bullet_points[:max_bullets]):
-                    # Draw elegant bullet point
-                    c.setFillColor(accent_color)
-                    c.circle(bullet_x_start, text_start_y + 5, 4, fill=1, stroke=0)
+                for i, item in enumerate(bullet_points[:max_lines]):
+                    # Only draw bullet marker if this is the start of a bullet point
+                    if item['is_bullet_start']:
+                        c.setFillColor(accent_color)
+                        c.circle(bullet_x_start, text_start_y + 5, 4, fill=1, stroke=0)
+                        x_pos = text_x_start
+                    else:
+                        # Continuation line - indent to align with bullet text
+                        x_pos = continuation_x_start
                     
                     # Draw text
                     c.setFillColor(text_color)
                     c.setFont("Helvetica", 16)
-                    c.drawString(text_x_start, text_start_y, point.strip())
+                    c.drawString(x_pos, text_start_y, item['text'])
                     text_start_y -= line_spacing
             
             # Add subtle branded footer text
