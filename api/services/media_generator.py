@@ -751,53 +751,60 @@ class MediaGenerator:
             bullet_points = []
             
             if content:
-                # Split by newlines or periods to create natural bullet points
-                raw_points = [p.strip() for p in content.replace('\n', '. ').split('.') if p.strip()]
+                # Split ONLY by bullet markers (• or numbered lists like 1., 2.)
+                # Do NOT split by periods or newlines - those are part of the content
+                lines = content.split('\n')
                 
-                # Wrap each point if too long
-                for point in raw_points[:6]:  # Max 6 bullet points
-                    # Skip if point is same as title
-                    if point.lower() == slide_title.lower():
+                for line in lines:
+                    line = line.strip()
+                    if not line:
                         continue
-                        
-                    if len(point) > max_chars_per_line:
-                        # Wrap long points
-                        words = point.split()
+                    
+                    # Remove bullet markers if present
+                    line = re.sub(r'^[•\-\*]\s*', '', line)  # Remove • - * at start
+                    line = re.sub(r'^\d+\.\s*', '', line)    # Remove 1. 2. etc at start
+                    
+                    # Skip if same as title
+                    if line.lower() == slide_title.lower():
+                        continue
+                    
+                    # Wrap long lines
+                    if len(line) > max_chars_per_line:
+                        words = line.split()
                         current_line = ""
-                        wrapped_lines = []
                         for word in words:
                             if len(current_line) + len(word) + 1 <= max_chars_per_line:
                                 current_line += (word + " ")
                             else:
                                 if current_line:
-                                    wrapped_lines.append(current_line.strip())
+                                    bullet_points.append(current_line.strip())
                                 current_line = word + " "
                         if current_line.strip():
-                            wrapped_lines.append(current_line.strip())
-                        bullet_points.extend(wrapped_lines)
+                            bullet_points.append(current_line.strip())
                     else:
-                        bullet_points.append(point)
+                        bullet_points.append(line)
 
             # Start text position BELOW the image area
-            # Image ends at: page_height - 380 - 300 = page_height - 680
-            # Add 20px padding below image
+            # Image ends at: page_height - 380 (top) - 300 (height) = page_height - 680
+            # Add 30px padding below image
             if is_cover_slide:
-                text_start_y = page_height - 500  # Below centered image on cover
+                text_start_y = page_height - 510  # Just below centered image on cover
             else:
-                text_start_y = page_height - 700  # Below standard positioned image
+                text_start_y = page_height - 410  # Much closer to image (was -700)
             
             # Only show bullets if we have content
             if bullet_points:
-                # Dynamic spacing to fill page better
-                available_height = text_start_y - 80  # Space until footer
-                total_bullets = len(bullet_points[:12])  # Max 12 lines to fill page
-                line_spacing = min(32, available_height // max(total_bullets, 1)) if total_bullets > 0 else 32
+                # Fixed spacing to prevent overlap (was dynamic and caused issues)
+                line_spacing = 28  # Fixed spacing for readability
+                
+                # Limit bullets to fit on page without overlap
+                max_bullets = min(len(bullet_points), 8)  # Max 8 lines to avoid crowding
                 
                 # Left-aligned bullets with beautiful style
                 bullet_x_start = 80  # Left margin for bullet
                 text_x_start = 110   # Text starts after bullet
                 
-                for i, point in enumerate(bullet_points[:12]):  # Show up to 12 lines to fill page
+                for i, point in enumerate(bullet_points[:max_bullets]):
                     # Draw elegant bullet point
                     c.setFillColor(accent_color)
                     c.circle(bullet_x_start, text_start_y + 5, 4, fill=1, stroke=0)
