@@ -726,6 +726,9 @@ async def generate_qrcode(request: QRCodeRequest):
 async def generate_carousel(request: CarouselRequest):
     """Generate PDF carousel (English, Spanish, or both)"""
     try:
+        # Initialize Gemini model for translations
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        
         # Determine which languages to generate
         should_generate_english = request.language in ["english", "both"]
         should_generate_spanish = request.language in ["spanish", "both"]
