@@ -42,7 +42,11 @@ if SUPABASE_URL and SUPABASE_KEY:
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://192.168.68.84:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://192.168.68.84:3000",
+        "https://linkedin-post-rho.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
