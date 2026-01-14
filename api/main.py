@@ -57,12 +57,22 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
 
+class NewsArticle(BaseModel):
+    title: str
+    description: str
+    url: str
+    image_url: Optional[str] = None
+    source: str
+    published_at: str
+    author: Optional[str] = None
+
 class PostRequest(BaseModel):
     pillar: str
     post_type: str = "standard"
     format_type: str
     topic: Optional[str] = None
     provider: str = "gemini"
+    news_article: Optional[NewsArticle] = None
 
 class PostResponse(BaseModel):
     content: str
@@ -101,7 +111,55 @@ async def generate_post(request: PostRequest):
                     print(f"Warning: Could not fetch posted posts for learning: {e}")
             
             type_instructions = ""
-            if request.post_type == "carousel":
+            if request.post_type == "trending_news":
+                if not request.news_article:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="news_article is required for trending_news post type"
+                    )
+                
+                type_instructions = f"""
+TRENDING NEWS COMMENTARY FORMAT:
+You are creating a LinkedIn post that comments on this trending news article:
+
+Article Title: {request.news_article.title}
+Source: {request.news_article.source}
+Published: {request.news_article.published_at}
+Description: {request.news_article.description}
+Article URL: {request.news_article.url}
+
+STRICT CAROUSEL FORMAT REQUIRED:
+Structure EXACTLY 4 slides with these THREE sections each:
+
+SLIDE 1 (NEWS HEADLINE):
+🔥 Breaking: [Catchy version of the article title]
+(Visual: Use the news article image at {request.news_article.image_url})
+[One sentence hook about why this matters]
+
+SLIDE 2 (KEY INSIGHTS):
+What This Means
+(Visual: professional tech concept related to the news)
+[2-3 bullet points analyzing the key implications]
+
+SLIDE 3 (HOT TAKE/COMMENTARY):
+My Take
+(Visual: professional concept related to your analysis)
+[2-3 bullet points with your expert perspective - be bold but professional]
+
+SLIDE 4 (CTA + SOURCE):
+What's Next?
+(Visual: professional forward-looking concept)
+[Call to action + source link]
+📰 Source: {request.news_article.source}
+🔗 Read more: {request.news_article.url}
+
+IMPORTANT:
+- Each slide MUST have Title, (Visual:...), and Body sections
+- First slide MUST reference the actual news with impact
+- Provide thoughtful commentary, not just facts
+- End with source attribution and CTA
+"""
+            elif request.post_type == "carousel":
                 type_instructions = """
 STRICT CAROUSEL FORMAT REQUIRED:
 Structure EVERY slide with these THREE sections (even if some are empty):
@@ -298,6 +356,7 @@ class CarouselRequest(BaseModel):
     theme: Optional[str] = "professional_blue"  # Color theme (professional_blue, elegant_dark, modern_purple, etc.)
     post_id: Optional[str] = None
     save_to_storage: bool = True
+    first_slide_image_url: Optional[str] = None  # External image URL for first slide (e.g., news article image)
 
 class AIImageRequest(BaseModel):
     prompt: str
@@ -472,7 +531,8 @@ async def generate_carousel(request: CarouselRequest):
         pdf_bytes = media_generator.generate_carousel_pdf(
             slides=request.slides,
             title=request.title,
-            theme=request.theme or "professional_blue"
+            theme=request.theme or "professional_blue",
+            first_slide_image_url=request.first_slide_image_url
         )
         
         # Create smart filename: ShortTitle_Pillar_DateShort

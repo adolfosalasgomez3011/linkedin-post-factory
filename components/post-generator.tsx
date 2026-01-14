@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,7 @@ const PILLARS = [
 const POST_TYPES = [
   { value: 'standard', label: 'Standard Text + Image' },
   { value: 'carousel', label: 'Carousel PDF (Slides)' },
+  { value: 'trending_news', label: '🔥 Trending News Commentary' },
   { value: 'interactive', label: 'Interactive Demo' }
 ]
 
@@ -37,6 +38,16 @@ const FORMATS = [
   'Case Study'
 ]
 
+interface NewsArticle {
+  title: string
+  description: string
+  url: string
+  image_url?: string
+  source: string
+  published_at: string
+  author?: string
+}
+
 export function PostGenerator() {
   const router = useRouter()
   const [pillar, setPillar] = useState('')
@@ -49,9 +60,54 @@ export function PostGenerator() {
   const [copied, setCopied] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedText, setEditedText] = useState('')
+  
+  // News article selection state
+  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([])
+  const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null)
+  const [newsLoading, setNewsLoading] = useState(false)
+
+  // Fetch news articles when trending_news type is selected and pillar is chosen
+  useEffect(() => {
+    if (postType === 'trending_news' && pillar) {
+      fetchNewsArticles()
+    } else {
+      setNewsArticles([])
+      setSelectedArticle(null)
+    }
+  }, [postType, pillar])
+
+  const fetchNewsArticles = async () => {
+    setNewsLoading(true)
+    try {
+      const response = await fetch('https://just-generosity-production.up.railway.app/news/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pillar: pillar,
+          query: topic || undefined,
+          max_results: 5
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch news articles')
+      }
+
+      const data = await response.json()
+      setNewsArticles(data.articles || [])
+    } catch (error) {
+      console.error('Error fetching news:', error)
+      alert('Failed to fetch trending news. Please try again.')
+    } finally {
+      setNewsLoading(false)
+    }
+  }
 
   const handleGenerate = async () => {
     if (!pillar || !format) return
+    if (postType === 'trending_news' && !selectedArticle) return
 
     setLoading(true)
     try {
@@ -60,7 +116,8 @@ export function PostGenerator() {
         post_type: postType,
         format_type: format,
         topic: topic || undefined,
-        provider
+        provider,
+        news_article: postType === 'trending_news' && selectedArticle ? selectedArticle : undefined
       })
       
       console.log('API Result:', result)
@@ -257,10 +314,69 @@ export function PostGenerator() {
             />
           </div>
 
+          {/* News Article Selection */}
+          {postType === 'trending_news' && (
+            <div className="space-y-3 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Select Trending Article *</label>
+                {newsLoading && (
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                )}
+              </div>
+              
+              {newsArticles.length === 0 && !newsLoading && pillar && (
+                <p className="text-sm text-muted-foreground">
+                  No trending articles found. Try a different pillar or topic.
+                </p>
+              )}
+
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {newsArticles.map((article, index) => (
+                  <Card 
+                    key={index} 
+                    className={`cursor-pointer transition-all hover:shadow-md ${
+                      selectedArticle?.url === article.url 
+                        ? 'border-blue-500 ring-2 ring-blue-500 ring-opacity-50' 
+                        : 'border-border'
+                    }`}
+                    onClick={() => setSelectedArticle(article)}
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex gap-3">
+                        {article.image_url && (
+                          <img 
+                            src={article.image_url} 
+                            alt={article.title}
+                            className="w-20 h-20 object-cover rounded"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-semibold line-clamp-2 mb-1">
+                            {article.title}
+                          </h4>
+                          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                            {article.description}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Badge variant="secondary" className="text-xs">
+                              {article.source}
+                            </Badge>
+                            <span>•</span>
+                            <span>{new Date(article.published_at).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Button
               onClick={handleGenerate}
-              disabled={!pillar || !format || loading}
+              disabled={!pillar || !format || loading || (postType === 'trending_news' && !selectedArticle)}
               className="flex-1"
             >
               {loading ? (

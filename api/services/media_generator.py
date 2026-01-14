@@ -537,7 +537,8 @@ class MediaGenerator:
         self,
         slides: List[Dict[str, str]],
         title: str,
-        theme: str = 'professional_blue'
+        theme: str = 'professional_blue',
+        first_slide_image_url: Optional[str] = None
     ) -> bytes:
         """
         Generate professional multi-page PDF carousel with AI-generated visuals
@@ -546,6 +547,7 @@ class MediaGenerator:
             slides: List of slide dictionaries with 'title' and 'content'
             title: Overall carousel title
             theme: Color theme name (professional_blue, elegant_dark, modern_purple, etc.)
+            first_slide_image_url: Optional external URL for first slide image (e.g., news article image)
         """
         
         # LinkedIn Portrait 4:5
@@ -652,6 +654,19 @@ class MediaGenerator:
                 should_generate_image = True
             
             try:
+                # Check if we should use external image for first slide
+                if idx == 0 and first_slide_image_url:
+                    # Download external image (e.g., news article image)
+                    try:
+                        response = requests.get(first_slide_image_url, timeout=10)
+                        response.raise_for_status()
+                        image_bytes = response.content
+                        should_generate_image = False  # Skip AI generation
+                    except Exception as download_error:
+                        print(f"Warning: Could not download external image: {download_error}")
+                        # Fall back to AI generation
+                        image_bytes = None
+                
                 if should_generate_image:
                     # Generate real AI image using Gemini 2.5 Flash Image
                     # CRITICAL: Image should NEVER contain the slide title text

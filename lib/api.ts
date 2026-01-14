@@ -6,6 +6,15 @@ export interface GeneratePostRequest {
   format_type: string
   topic?: string
   provider?: string
+  news_article?: {
+    title: string
+    description: string
+    url: string
+    image_url?: string
+    source: string
+    published_at: string
+    author?: string
+  }
 }
 
 export interface PostResponse {
