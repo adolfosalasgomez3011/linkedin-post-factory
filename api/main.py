@@ -851,10 +851,14 @@ Return ONLY a JSON array of the translated slides in the exact same format."""
                 print(f"❌ ERROR: Spanish carousel generation failed: {str(e)}")
                 import traceback
                 traceback.print_exc()
-                # Don't fail the whole request, just skip Spanish version
+                # If Spanish was the only requested language, fail the request
+                if request.language == "spanish":
+                    raise HTTPException(status_code=500, detail=f"Spanish carousel generation failed: {str(e)}")
         
         # If Spanish-only was requested, move Spanish to main response
         if request.language == "spanish":
+            if not url_es:
+                raise HTTPException(status_code=500, detail="Spanish carousel generation failed - no URL generated")
             url = url_es
             filename = filename_es
             local_path = local_path_es
