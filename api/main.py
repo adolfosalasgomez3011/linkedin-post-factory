@@ -828,8 +828,9 @@ Return ONLY a JSON array of the translated slides in the exact same format."""
                 
                 filename_es = f"{short_title}_{pillar_code}_{date_str}_ES.pdf"
                 
-                # Save locally
+                # Save locally - ensure directory exists
                 output_dir = os.path.join(os.getcwd(), "GeneratedCarousels")
+                os.makedirs(output_dir, exist_ok=True)
                 local_path_es = os.path.join(output_dir, filename_es)
                 
                 with open(local_path_es, 'wb') as f:
