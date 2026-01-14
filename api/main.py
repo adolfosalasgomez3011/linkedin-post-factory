@@ -78,6 +78,7 @@ class PostResponse(BaseModel):
     content: str
     voice_score: float
     hashtags: list[str]
+    carousel_url: Optional[str] = None
 
 class BatchGenerateRequest(BaseModel):
     count: int = 10
@@ -100,6 +101,65 @@ async def batch_generate(request: BatchGenerateRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Batch generation failed: {str(e)}")
+
+def _parse_slides_from_content(content: str) -> List[Dict[str, str]]:
+    """
+    Parse slide content from AI-generated text.
+    Expects format:
+    SLIDE 1:
+    Title text
+    (Visual: description)
+    Body text
+    
+    Returns list of dicts with 'title' and 'content' keys
+    """
+    import re
+    
+    slides = []
+    
+    # Split by SLIDE markers
+    slide_pattern = r'SLIDE \d+:'
+    slide_sections = re.split(slide_pattern, content)
+    
+    # Remove empty first element (before first SLIDE)
+    if slide_sections and not slide_sections[0].strip():
+        slide_sections = slide_sections[1:]
+    
+    for section in slide_sections:
+        if not section.strip():
+            continue
+        
+        lines = section.strip().split('\n')
+        
+        # First non-empty line is the title
+        title = ""
+        content_lines = []
+        visual_found = False
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Skip visual descriptions (keep them in content for processing later)
+            if line.startswith('(Visual:'):
+                visual_found = True
+                content_lines.append(line)
+                continue
+            
+            # First real content line is title (unless it's a visual line)
+            if not title and not visual_found:
+                title = line
+            else:
+                content_lines.append(line)
+        
+        if title:
+            slides.append({
+                'title': title,
+                'content': '\n'.join(content_lines)
+            })
+    
+    return slides
 
 @app.post("/posts/generate", response_model=PostResponse)
 async def generate_post(request: PostRequest):
@@ -138,7 +198,7 @@ async def generate_post(request: PostRequest):
                 
                 type_instructions = f"""
 TRENDING NEWS COMMENTARY FORMAT:
-You are creating a LinkedIn post that comments on this trending news article:
+You are creating a LinkedIn carousel post that comments on this trending news article:
 
 Article Title: {request.news_article.title}
 Source: {request.news_article.source}
@@ -146,36 +206,40 @@ Published: {request.news_article.published_at}
 Description: {request.news_article.description}
 Article URL: {request.news_article.url}
 
-STRICT CAROUSEL FORMAT REQUIRED:
-Structure EXACTLY 4 slides with these THREE sections each:
+CREATE EXACTLY 4 SLIDES using this format:
 
-SLIDE 1 (NEWS HEADLINE):
-🔥 Breaking: [Catchy version of the article title]
-(Visual: Use the news article image at {request.news_article.image_url})
-[One sentence hook about why this matters]
+SLIDE 1:
+[Write an engaging, short headline version of the news - make it punchy and attention-grabbing]
+(Visual: news)
+[Write one powerful sentence about why this news matters to professionals]
 
-SLIDE 2 (KEY INSIGHTS):
+SLIDE 2:
 What This Means
-(Visual: professional tech concept related to the news)
-[2-3 bullet points analyzing the key implications]
+(Visual: analysis concept)
+• [First key insight about the implications]
+• [Second key insight or impact]
+• [Third insight if needed]
 
-SLIDE 3 (HOT TAKE/COMMENTARY):
+SLIDE 3:
 My Take
-(Visual: professional concept related to your analysis)
-[2-3 bullet points with your expert perspective - be bold but professional]
+(Visual: expert opinion concept)
+• [Your first bold professional perspective]
+• [Your second opinion or prediction]
+• [Your third thought on what professionals should do]
 
-SLIDE 4 (CTA + SOURCE):
+SLIDE 4:
 What's Next?
-(Visual: professional forward-looking concept)
-[Call to action + source link]
+(Visual: future concept)
+[Call to action - what should readers do or think about?]
+
 📰 Source: {request.news_article.source}
-🔗 Read more: {request.news_article.url}
+🔗 Read more at: {request.news_article.url}
 
 IMPORTANT:
-- Each slide MUST have Title, (Visual:...), and Body sections
-- First slide MUST reference the actual news with impact
-- Provide thoughtful commentary, not just facts
-- End with source attribution and CTA
+- Write ACTUAL content, not placeholders or labels
+- Each slide needs Title, (Visual: ...), and Body
+- Be insightful and professional, not just factual
+- Make it valuable for the reader
 """
             elif request.post_type == "carousel":
                 type_instructions = """
@@ -256,10 +320,58 @@ Return ONLY the post content followed by hashtags on a new line."""
             # Calculate voice score (simple heuristic)
             voice_score = min(95.0, 70.0 + (len(final_content) / 20))
             
+            # Parse slides and generate carousel PDF for carousel/trending_news types
+            carousel_url = None
+            if request.post_type in ["carousel", "trending_news"]:
+                try:
+                    # Parse slides from the generated content
+                    slides = _parse_slides_from_content(final_content)
+                    
+                    if slides:
+                        # Get first slide image URL for trending news
+                        first_slide_image = None
+                        if request.post_type == "trending_news" and request.news_article and request.news_article.image_url:
+                            first_slide_image = request.news_article.image_url
+                        
+                        # Generate carousel PDF
+                        pdf_bytes = media_generator.generate_carousel_pdf(
+                            slides=slides,
+                            title=slides[0].get('title', request.pillar),
+                            theme="professional_blue",
+                            first_slide_image_url=first_slide_image
+                        )
+                        
+                        # Save to GeneratedCarousels folder with smart filename
+                        from datetime import datetime
+                        import re
+                        
+                        title_words = slides[0].get('title', 'Post').split()[:3]
+                        short_title = "".join([re.sub(r'[^A-Za-z0-9]', '', word).capitalize() for word in title_words])
+                        pillar_code = re.sub(r'[^A-Za-z0-9]', '', request.pillar or "General")
+                        date_str = datetime.now().strftime("%b%d")
+                        filename = f"{short_title}_{pillar_code}_{date_str}.pdf"
+                        
+                        output_dir = os.path.join(os.getcwd(), "GeneratedCarousels")
+                        os.makedirs(output_dir, exist_ok=True)
+                        local_path = os.path.join(output_dir, filename)
+                        
+                        with open(local_path, 'wb') as f:
+                            f.write(pdf_bytes)
+                        
+                        print(f"✅ Carousel saved: {local_path}")
+                        
+                        # Convert to data URI for frontend
+                        carousel_url = to_data_uri(pdf_bytes, "application/pdf")
+                        
+                except Exception as e:
+                    print(f"Warning: Carousel generation failed: {e}")
+                    # Continue without carousel - user still gets text content
+            
             return PostResponse(
                 content=final_content,
                 voice_score=round(voice_score, 1),
-                hashtags=hashtags[:5] if hashtags else ["#LinkedIn", "#Professional"]
+                hashtags=hashtags[:5] if hashtags else ["#LinkedIn", "#Professional"],
+                carousel_url=carousel_url
             )
         
         else:

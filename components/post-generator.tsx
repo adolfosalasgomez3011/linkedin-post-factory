@@ -492,6 +492,28 @@ export function PostGenerator() {
                 )}
               </div>
 
+              {/* Carousel Preview */}
+              {(generatedPost as any).carousel_url && (
+                <div className="mt-4 border rounded-lg p-4 bg-slate-50">
+                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-blue-600" />
+                    Carousel Preview
+                  </h3>
+                  <iframe
+                    src={(generatedPost as any).carousel_url}
+                    className="w-full h-[500px] border rounded"
+                    title="Carousel Preview"
+                  />
+                  <a
+                    href={(generatedPost as any).carousel_url}
+                    download="linkedin-carousel.pdf"
+                    className="mt-3 inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    Download PDF →
+                  </a>
+                </div>
+              )}
+
               {!isEditing && (generatedPost as any).id && (
                 <Button 
                   variant="default" 

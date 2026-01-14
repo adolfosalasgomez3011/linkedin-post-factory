@@ -29,6 +29,7 @@ export interface PostResponse {
   length: number
   created_at: string
   status: string
+  carousel_url?: string  // PDF data URI for carousel posts
 }
 
 export const api = {
