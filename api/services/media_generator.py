@@ -829,10 +829,14 @@ class MediaGenerator:
                 bullet_x_start = 80  # Left margin for bullet
                 text_x_start = 110   # Text starts after bullet
                 continuation_x_start = 110  # Continuation lines align with bullet text
+                cover_text_x_start = 80  # Cover slide text starts at left margin (no bullets)
                 
                 for i, item in enumerate(bullet_points[:max_lines]):
+                    # Cover slide (first slide) shows text without bullets for cleaner look
+                    if is_cover_slide:
+                        x_pos = cover_text_x_start
                     # Only draw bullet marker if this is the start of a bullet point
-                    if item['is_bullet_start']:
+                    elif item['is_bullet_start']:
                         c.setFillColor(accent_color)
                         c.circle(bullet_x_start, text_start_y + 5, 4, fill=1, stroke=0)
                         x_pos = text_x_start
