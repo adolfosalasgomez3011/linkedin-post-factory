@@ -79,7 +79,8 @@ export function PostGenerator() {
   const fetchNewsArticles = async () => {
     setNewsLoading(true)
     try {
-      const response = await fetch('https://just-generosity-production.up.railway.app/news/search', {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const response = await fetch(`${API_URL}/news/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
