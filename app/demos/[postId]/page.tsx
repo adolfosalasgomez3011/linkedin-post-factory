@@ -580,10 +580,16 @@ function VisualizationPanel({ post }: { post: Post }) {
               href={generatedUrl}
               target="_blank"
               rel="noopener noreferrer"
-              download={generatedType === 'carousel' ? "linkedin-carousel-en.pdf" : undefined}
+              download={generatedType === 'carousel' ? `linkedin-carousel-${language === 'spanish' ? 'es' : 'en'}.pdf` : undefined}
               className="text-sm text-blue-600 hover:underline inline-block"
             >
-              {generatedType === 'carousel' ? '🇬🇧 Download English PDF ↓' : 'Open Link / Download →'}
+              {generatedType === 'carousel' 
+                ? language === 'spanish' 
+                  ? '🇪🇸 Download Spanish PDF ↓'
+                  : language === 'both'
+                    ? '🇬🇧 Download English PDF ↓'
+                    : '🇬🇧 Download English PDF ↓'
+                : 'Open Link / Download →'}
             </a>
             
             {generatedUrlEs && generatedType === 'carousel' && (
