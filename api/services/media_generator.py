@@ -751,10 +751,24 @@ class MediaGenerator:
             bullet_points = []  # Each item: {'text': str, 'is_bullet_start': bool}
             
             if content:
-                # Split ONLY by actual bullet markers or newlines that start with bullets
+                # Split by newlines first, then by periods to create bullet points
                 lines = content.split('\n')
                 
+                # Further split by periods to handle paragraph text
+                all_lines = []
                 for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    # If line has multiple sentences (periods), split them
+                    if '.' in line:
+                        sentences = [s.strip() for s in line.split('.') if s.strip()]
+                        all_lines.extend(sentences)
+                    else:
+                        all_lines.append(line)
+                
+                for line in all_lines:
                     line = line.strip()
                     if not line:
                         continue
