@@ -2,20 +2,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export interface GeneratePostRequest {
   pillar: string
-  post_type: string
   format_type: string
   topic?: string
   provider?: string
-  language?: string
-  news_article?: {
-    title: string
-    description: string
-    url: string
-    image_url?: string
-    source: string
-    published_at: string
-    author?: string
-  }
 }
 
 export interface PostResponse {
@@ -23,16 +12,12 @@ export interface PostResponse {
   pillar: string
   format: string
   topic: string
-  content: string  // API returns 'content', not 'text'
-  text: string     // Keep for backward compatibility
+  text: string
   hashtags: string[]
   voice_score: number
   length: number
   created_at: string
   status: string
-  carousel_url?: string  // PDF data URI for carousel posts
-  content_es?: string    // Spanish version content
-  carousel_url_es?: string  // Spanish PDF data URI
 }
 
 export const api = {
@@ -42,15 +27,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    if (!res.ok) {
-      const errorText = await res.text()
-      try {
-        const errorJson = JSON.parse(errorText)
-        throw new Error(errorJson.detail || 'Failed to generate post')
-      } catch (e) {
-        throw new Error(`Failed to generate post: ${errorText}`)
-      }
-    }
+    if (!res.ok) throw new Error('Failed to generate post')
     return res.json()
   },
 
@@ -83,6 +60,12 @@ export const api = {
   async getDashboard(): Promise<any> {
     const res = await fetch(`${API_URL}/dashboard`)
     if (!res.ok) throw new Error('Failed to get dashboard')
+    return res.json()
+  },
+
+  async getTrendingNews(category: string = 'technology', count: number = 10): Promise<any> {
+    const res = await fetch(`${API_URL}/news/trending?category=${category}&count=${count}`)
+    if (!res.ok) throw new Error('Failed to fetch trending news')
     return res.json()
   },
 }
