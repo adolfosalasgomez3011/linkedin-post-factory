@@ -109,8 +109,8 @@ export function PostGenerator() {
         setGeneratedPost({
           ...result,
           id: postId, // Include the ID
-          text: result.text || result.content,
-          length: (result.text || result.content || '').length,
+          text: result.text,
+          length: result.text.length,
           pillar: pillar,
           format: format,
           topic: topic || '',
