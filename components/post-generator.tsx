@@ -75,7 +75,7 @@ export function PostGenerator() {
         topic: topic || null,
         hashtags: result.hashtags ? result.hashtags.join(' ') : null,
         voice_score: result.voice_score,
-        length: (result.text || result.content || '').length,
+        length: (result.text || '').length,
         status: 'raw' as const
       }
       
