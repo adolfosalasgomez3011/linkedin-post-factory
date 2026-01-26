@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ArrowLeft, BarChart3, Code2, Image, Sparkles, Globe, MonitorPlay, FileText } from 'lucide-react'
 import { Database } from '@/types/database'
 import { supabase } from '@/lib/supabase'
@@ -258,11 +257,8 @@ function EngagementSimulation({ post }: { post: Post }) {
 function VisualizationPanel({ post }: { post: Post }) {
   const [generating, setGenerating] = useState(false)
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
-  const [generatedUrlEs, setGeneratedUrlEs] = useState<string | null>(null)
   const [generatedType, setGeneratedType] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [carouselTheme, setCarouselTheme] = useState('professional_blue')
-  const [language, setLanguage] = useState('both')
 
   const generateVisual = async (type: string) => {
     setGenerating(true)
@@ -297,46 +293,24 @@ function VisualizationPanel({ post }: { post: Post }) {
         }
       } else if (type === 'carousel') {
         endpoint = '/media/generate-carousel'
-        let slides: Array<{title: string, content: string}> = [];
+        let slides = [];
         const text = post.text || '';
         
-        // Enhanced parsing for "SLIDE X:" and "LAST SLIDE:" formats
+        // Try parsing "SLIDE X:" format
         if (text.includes('SLIDE')) {
-            // Split by SLIDE markers - handles both numbered and LAST SLIDE
-            const slideRegex = /(SLIDE\s+(\d+)|LAST\s+SLIDE):\s*/gi;
-            const matches = [...text.matchAll(slideRegex)];
-            
-            if (matches.length > 0) {
-                slides = matches.map((match, idx) => {
-                    const startIdx = match.index! + match[0].length;
-                    const endIdx = matches[idx + 1]?.index || text.length;
-                    const slideContent = text.substring(startIdx, endIdx).trim();
-                    
-                    // Parse slide content: first line = title, rest = body
-                    const lines = slideContent.split('\n').filter(l => l.trim());
-                    
-                    if (lines.length === 0) {
-                        return { title: `Slide ${idx + 1}`, content: '' };
-                    }
-                    
-                    // First non-empty line is title
-                    const title = lines[0].replace(/[*#]/g, '').trim();
-                    
-                    // Everything after first line is content (includes visual prompt)
-                    const content = lines.slice(1).join('\n').trim();
-                    
-                    return {
-                        title: title,
-                        content: content  // Can be empty, visual prompt, or body text
-                    };
-                });
-                
-                // Filter out any accidentally empty slides
-                slides = slides.filter(s => s.title && s.title.length > 0);
-            }
+            const slideParts = text.split(/SLIDE \d+:/i).filter(s => s.trim().length > 0);
+            slides = slideParts.map((part, i) => {
+                const lines = part.trim().split('\n');
+                const title = lines[0].replace(/[*#]/g, '').trim();
+                const content = lines.slice(1).join('\n').trim();
+                return {
+                    title: title || `Slide ${i+1}`,
+                    content: content || title // If no content, use title as content
+                };
+            });
         }
         
-        // Fallback to simple line splitting if parsing failed
+        // Fallback to simple line splitting if parsing failed or didn't produce slides
         if (slides.length === 0) {
              const lines = text.split('\n').filter(l => l.length > 20).slice(0, 5);
              slides = lines.map((l, i) => ({ 
@@ -348,9 +322,6 @@ function VisualizationPanel({ post }: { post: Post }) {
         body = {
             ...body,
             title: post.topic || 'In-Depth Carousel',
-            pillar: post.pillar || 'General',
-            theme: carouselTheme,
-            language: language,
             slides: slides.length > 0 ? slides : [
                 { title: 'Introduction', content: 'Carousel content based on your post.' },
                 { title: 'Key Insight', content: 'Detailed analysis of the topic.' },
@@ -393,27 +364,6 @@ function VisualizationPanel({ post }: { post: Post }) {
       
       if (result.url) {
         setGeneratedUrl(result.url)
-        setGeneratedUrlEs(result.url_es || null)
-        
-        // If we got a filename, trigger download with that name
-        if (result.filename && type === 'carousel') {
-          const link = document.createElement('a')
-          link.href = result.url
-          link.download = result.filename
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          
-          // Download Spanish version if available
-          if (result.url_es && result.filename_es) {
-            const linkEs = document.createElement('a')
-            linkEs.href = result.url_es
-            linkEs.download = result.filename_es
-            document.body.appendChild(linkEs)
-            linkEs.click()
-            document.body.removeChild(linkEs)
-          }
-        }
       } else {
         throw new Error('No URL returned from API')
       }
@@ -430,49 +380,6 @@ function VisualizationPanel({ post }: { post: Post }) {
       <p className="text-sm text-muted-foreground">
         Generate stunning visual assets to accompany your LinkedIn post:
       </p>
-
-      {/* Carousel Theme Selector */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <label className="text-sm font-medium text-blue-900 mb-2 block">
-          🎨 Carousel Color Theme
-        </label>
-        <Select value={carouselTheme} onValueChange={setCarouselTheme}>
-          <SelectTrigger className="bg-white">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="professional_blue">Professional Blue (Default)</SelectItem>
-            <SelectItem value="elegant_dark">Elegant Dark</SelectItem>
-            <SelectItem value="modern_purple">Modern Purple</SelectItem>
-            <SelectItem value="corporate_red">Corporate Red</SelectItem>
-            <SelectItem value="nature_green">Nature Green</SelectItem>
-            <SelectItem value="sunset_orange">Sunset Orange</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-blue-600 mt-2">
-          Choose a color theme for your carousel. Preview updates when you generate!
-        </p>
-      </div>
-
-      {/* Language Selector */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-        <label className="text-sm font-medium text-amber-900 mb-2 block">
-          🌐 Language
-        </label>
-        <Select value={language} onValueChange={setLanguage}>
-          <SelectTrigger className="bg-white">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="english">🇬🇧 English</SelectItem>
-            <SelectItem value="spanish">🇪🇸 Español</SelectItem>
-            <SelectItem value="both">🌐 Both Languages</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-amber-600 mt-2">
-          Select "Both" to generate separate carousels for English and Spanish.
-        </p>
-      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Button
@@ -546,7 +453,7 @@ function VisualizationPanel({ post }: { post: Post }) {
       )}
 
       {generatedUrl && (
-        <div className="bg-slate-100 rounded-lg p-4 space-y-4">
+        <div className="bg-slate-100 rounded-lg p-4">
           <p className="text-sm font-medium mb-2">✅ Visual asset generated!</p>
           
           {(generatedUrl.startsWith('data:text/html') || generatedUrl.endsWith('.html')) ? (
@@ -575,35 +482,15 @@ function VisualizationPanel({ post }: { post: Post }) {
             <img src={generatedUrl} alt="Generated visual" className="w-full rounded-lg border" />
           )}
 
-          <div className="flex gap-4">
-            <a
-              href={generatedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              download={generatedType === 'carousel' ? `linkedin-carousel-${language === 'spanish' ? 'es' : 'en'}.pdf` : undefined}
-              className="text-sm text-blue-600 hover:underline inline-block"
-            >
-              {generatedType === 'carousel' 
-                ? language === 'spanish' 
-                  ? '🇪🇸 Download Spanish PDF ↓'
-                  : language === 'both'
-                    ? '🇬🇧 Download English PDF ↓'
-                    : '🇬🇧 Download English PDF ↓'
-                : 'Open Link / Download →'}
-            </a>
-            
-            {generatedUrlEs && generatedType === 'carousel' && (
-              <a
-                href={generatedUrlEs}
-                target="_blank"
-                rel="noopener noreferrer"
-                download="linkedin-carousel-es.pdf"
-                className="text-sm text-amber-600 hover:underline inline-block"
-              >
-                🇪🇸 Download Spanish PDF ↓
-              </a>
-            )}
-          </div>
+          <a
+            href={generatedUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            download={generatedType === 'carousel' ? "linkedin-carousel.pdf" : undefined}
+            className="text-sm text-blue-600 hover:underline mt-2 inline-block"
+          >
+            {generatedType === 'carousel' ? 'Download PDF ↓' : 'Open Link / Download →'}
+          </a>
         </div>
       )}
     </div>
@@ -615,7 +502,7 @@ function TechnicalAnalysis({ post }: { post: Post }) {
   const analysis = {
     readability: Math.min(100, 70 + (post.voice_score || 70) / 3),
     seoScore: Math.min(100, 60 + (post.hashtags?.split(' ').length || 0) * 5),
-    viralPotential: Math.min(100, (post.voice_score || 70) + ((post.length || 0) > 500 ? 20 : 10)),
+    viralPotential: Math.min(100, (post.voice_score || 70) + (post.length > 500 ? 20 : 10)),
     professionalTone: post.voice_score || 70
   }
 

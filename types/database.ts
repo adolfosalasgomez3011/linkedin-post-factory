@@ -13,9 +13,6 @@ export type Database = {
           status: 'raw' | 'review' | 'approved' | 'scheduled' | 'posted'
           voice_score: number | null
           length: number | null
-          media_urls: string[] | null
-          media_type: 'code' | 'chart' | 'ai-image' | 'infographic' | 'carousel' | 'demo' | null
-          demo_url: string | null
         }
         Insert: {
           id?: string
@@ -28,9 +25,6 @@ export type Database = {
           status?: 'raw' | 'review' | 'approved' | 'scheduled' | 'posted'
           voice_score?: number | null
           length?: number | null
-          media_urls?: string[] | null
-          media_type?: 'code' | 'chart' | 'ai-image' | 'infographic' | 'carousel' | 'demo' | null
-          demo_url?: string | null
         }
         Update: {
           id?: string
@@ -43,9 +37,6 @@ export type Database = {
           status?: 'raw' | 'review' | 'approved' | 'scheduled' | 'posted'
           voice_score?: number | null
           length?: number | null
-          media_urls?: string[] | null
-          media_type?: 'code' | 'chart' | 'ai-image' | 'infographic' | 'carousel' | 'demo' | null
-          demo_url?: string | null
         }
       }
       engagement: {

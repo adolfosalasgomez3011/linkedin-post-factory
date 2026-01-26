@@ -4,12 +4,12 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 import os
-import json
 from dotenv import load_dotenv
 import google.generativeai as genai
 from supabase import create_client, Client
 from api.services.media_generator import media_generator
 from api.services.storage_service import StorageService
+from api.services.news_service import NewsService
 import base64
 
 # Helper for data URIs
@@ -28,6 +28,8 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
 supabase: Client = None
 storage_service: StorageService = None
+news_service = NewsService()
+
 if SUPABASE_URL and SUPABASE_KEY:
     # Ensure URL has trailing slash to avoid warnings/errors
     if not SUPABASE_URL.endswith("/"):
@@ -40,11 +42,11 @@ if SUPABASE_URL and SUPABASE_KEY:
         supabase = None
         storage_service = None
 
-# CORS middleware - Allow all origins for now
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
-    allow_credentials=False,  # Must be False when using wildcard
+    allow_origins=["http://localhost:3000", "http://192.168.68.84:3000"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -54,112 +56,21 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
 
-class NewsArticle(BaseModel):
-    title: str
-    description: str
-    url: str
-    image_url: Optional[str] = None
-    source: str
-    published_at: str
-    author: Optional[str] = None
-
 class PostRequest(BaseModel):
     pillar: str
     post_type: str = "standard"
     format_type: str
     topic: Optional[str] = None
     provider: str = "gemini"
-    language: Optional[str] = "both"  # english, spanish, or both
-    news_article: Optional[NewsArticle] = None
 
 class PostResponse(BaseModel):
     content: str
     voice_score: float
     hashtags: list[str]
-    carousel_url: Optional[str] = None
-    content_es: Optional[str] = None  # Spanish version
-    carousel_url_es: Optional[str] = None  # Spanish carousel
-
-class BatchGenerateRequest(BaseModel):
-    count: int = 10
-    pillar: Optional[str] = None
 
 @app.get("/")
 async def root():
     return {"message": "LinkedIn Post Factory API", "status": "running"}
-
-@app.post("/posts/batch")
-async def batch_generate(request: BatchGenerateRequest):
-    """Generate multiple posts in batch"""
-    try:
-        # For now, return a simple success message
-        # In a full implementation, this would generate multiple posts asynchronously
-        return {
-            "message": f"Batch generation started for {request.count} posts",
-            "count": request.count,
-            "pillar": request.pillar
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Batch generation failed: {str(e)}")
-
-def _parse_slides_from_content(content: str) -> List[Dict[str, str]]:
-    """
-    Parse slide content from AI-generated text.
-    Expects format:
-    SLIDE 1:
-    Title text
-    (Visual: description)
-    Body text
-    
-    Returns list of dicts with 'title' and 'content' keys
-    """
-    import re
-    
-    slides = []
-    
-    # Split by SLIDE markers
-    slide_pattern = r'SLIDE \d+:'
-    slide_sections = re.split(slide_pattern, content)
-    
-    # Remove empty first element (before first SLIDE)
-    if slide_sections and not slide_sections[0].strip():
-        slide_sections = slide_sections[1:]
-    
-    for section in slide_sections:
-        if not section.strip():
-            continue
-        
-        lines = section.strip().split('\n')
-        
-        # First non-empty line is the title
-        title = ""
-        content_lines = []
-        visual_found = False
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            
-            # Skip visual descriptions (keep them in content for processing later)
-            if line.startswith('(Visual:'):
-                visual_found = True
-                content_lines.append(line)
-                continue
-            
-            # First real content line is title (unless it's a visual line)
-            if not title and not visual_found:
-                title = line
-            else:
-                content_lines.append(line)
-        
-        if title:
-            slides.append({
-                'title': title,
-                'content': '\n'.join(content_lines)
-            })
-    
-    return slides
 
 @app.post("/posts/generate", response_model=PostResponse)
 async def generate_post(request: PostRequest):
@@ -189,84 +100,14 @@ async def generate_post(request: PostRequest):
                     print(f"Warning: Could not fetch posted posts for learning: {e}")
             
             type_instructions = ""
-            if request.post_type == "trending_news":
-                if not request.news_article:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="news_article is required for trending_news post type"
-                    )
-                
-                type_instructions = f"""
-TRENDING NEWS COMMENTARY - CAROUSEL FORMAT:
-
-Article: {request.news_article.title}
-Source: {request.news_article.source}
-Description: {request.news_article.description}
-
-Generate EXACTLY 4 slides. Each slide MUST follow this EXACT 3-section structure:
-
-Title Line (one punchy line)
-(Visual: brief description)
-Body content (actual insights, not placeholders)
-
-EXAMPLE of correct format:
-
-SLIDE 1:
-AI Breakthrough Reshapes Mining Industry
-(Visual: news)
-This technology could reduce operational costs by 40% while improving safety standards across South American operations.
-
-SLIDE 2:
-What This Means
-(Visual: impact analysis)
-• Mining companies gain competitive edge through automation
-• Safety protocols enhanced with real-time AI monitoring
-• Cost efficiency creates opportunities for smaller operators
-
-SLIDE 3:
-My Take
-(Visual: expert perspective)
-• This isn't just about efficiency - it's about survival in a changing market
-• Companies not adopting AI risk obsolescence within 3 years
-• Peru and Chile are positioned to lead this transformation in Latin America
-
-SLIDE 4:
-What's Next?
-(Visual: future outlook)
-Time to evaluate AI readiness in your operations. The early adopters will dominate the next decade.
-
-📰 Source: {request.news_article.source}
-🔗 {request.news_article.url}
-
-NOW generate your 4 slides about the actual news article. Use real content, not examples or placeholders.
-"""
-            elif request.post_type == "carousel":
+            if request.post_type == "carousel":
                 type_instructions = """
 STRICT CAROUSEL FORMAT REQUIRED:
-Structure EVERY slide with these THREE sections (even if some are empty):
-
-SLIDE 1:
-[Title text - always required]
-(Visual: [Describe image concept - or leave empty])
-[Body text - or leave empty]
-
-SLIDE 2-6:
-[Title text - always required]
-(Visual: [Describe image concept - or leave empty if you want generic professional image])
-[Body text with key points - or leave empty for title-only slide]
-
-LAST SLIDE:
-[Title text - always required]
-(Visual: [Describe image concept - or leave empty])
-[Body text with CTA and summary - or leave empty]
-
-IMPORTANT RULES:
-- Every slide MUST have these 3 sections clearly marked
-- Title is always required (never empty)
-- Visual can be empty (generic professional image will be used)
-- Body text can be empty (only title and image will show)
-- Use (Visual: ...) to describe what image to generate
-- Body text appears as elegant bullets below the image
+Structure the content clearly for a PDF Carousel.
+- Slide 1: Hook/Title (Big impact)
+- Slides 2-6: One key point per slide (Concise text + Visual idea descriptions)
+- Last Slide: Summary & CTA
+Format each slide clearly (e.g., "SLIDE 1: ...")
 """
             elif request.post_type == "interactive":
                 type_instructions = """
@@ -277,14 +118,6 @@ This post promotes a new interactive tool/simulator.
 - Explicit Call-to-Action: "Try the simulator at the link below" or "Comment for access"
 """
 
-            # Create language instruction
-            language_map = {
-                "english": "Write the entire post in English.",
-                "spanish": "Write the entire post in Spanish (Español).",
-                "both": "Write the entire post in English."  # For "both", we'll generate twice
-            }
-            language_instruction = language_map.get(request.language, language_map["english"])
-
             # Create prompt
             prompt = f"""Generate a LinkedIn post with the following specifications:
 
@@ -293,12 +126,9 @@ Post Type: {request.post_type}
 Format: {request.format_type}
 Topic: {request.topic}
 
-LANGUAGE REQUIREMENT:
-{language_instruction}
-
 Requirements:
 - Write in a professional yet engaging tone
-- Keep it concise (under 1300 characters per version)
+- Keep it concise (under 1300 characters)
 - Use line breaks for readability
 - Include relevant hashtags (3-5)
 - Make it authentic and valuable
@@ -330,115 +160,10 @@ Return ONLY the post content followed by hashtags on a new line."""
             # Calculate voice score (simple heuristic)
             voice_score = min(95.0, 70.0 + (len(final_content) / 20))
             
-            # Parse slides and generate carousel PDF for carousel/trending_news types
-            carousel_url = None
-            if request.post_type in ["carousel", "trending_news"]:
-                try:
-                    # Parse slides from the generated content
-                    slides = _parse_slides_from_content(final_content)
-                    
-                    if slides:
-                        # Get first slide image URL for trending news
-                        first_slide_image = None
-                        if request.post_type == "trending_news" and request.news_article and request.news_article.image_url:
-                            first_slide_image = request.news_article.image_url
-                        
-                        # Generate carousel PDF
-                        pdf_bytes = media_generator.generate_carousel_pdf(
-                            slides=slides,
-                            title=slides[0].get('title', request.pillar),
-                            theme="professional_blue",
-                            first_slide_image_url=first_slide_image
-                        )
-                        
-                        # Save to GeneratedCarousels folder with smart filename
-                        from datetime import datetime
-                        import re
-                        
-                        title_words = slides[0].get('title', 'Post').split()[:3]
-                        short_title = "".join([re.sub(r'[^A-Za-z0-9]', '', word).capitalize() for word in title_words])
-                        pillar_code = re.sub(r'[^A-Za-z0-9]', '', request.pillar or "General")
-                        date_str = datetime.now().strftime("%b%d")
-                        filename = f"{short_title}_{pillar_code}_{date_str}.pdf"
-                        
-                        output_dir = os.path.join(os.getcwd(), "GeneratedCarousels")
-                        os.makedirs(output_dir, exist_ok=True)
-                        local_path = os.path.join(output_dir, filename)
-                        
-                        with open(local_path, 'wb') as f:
-                            f.write(pdf_bytes)
-                        
-                        print(f"✅ Carousel saved: {local_path}")
-                        
-                        # Convert to data URI for frontend
-                        carousel_url = to_data_uri(pdf_bytes, "application/pdf")
-                        
-                except Exception as e:
-                    print(f"Warning: Carousel generation failed: {e}")
-                    # Continue without carousel - user still gets text content
-            
-            # If "both" languages requested, generate Spanish version
-            content_es = None
-            carousel_url_es = None
-            if request.language == "both":
-                try:
-                    # Generate Spanish version with same structure
-                    spanish_prompt = prompt.replace(
-                        "Write the entire post in English.",
-                        "Write the entire post in Spanish (Español)."
-                    )
-                    
-                    spanish_response = model.generate_content(spanish_prompt)
-                    spanish_text = spanish_response.text
-                    
-                    # Parse Spanish content
-                    spanish_lines = spanish_text.strip().split('\n')
-                    spanish_content = []
-                    spanish_hashtags = []
-                    
-                    for line in spanish_lines:
-                        if line.strip().startswith('#'):
-                            tags = [tag.strip() for tag in line.split() if tag.startswith('#')]
-                            spanish_hashtags.extend(tags)
-                        else:
-                            spanish_content.append(line)
-                    
-                    content_es = '\n'.join(spanish_content).strip()
-                    
-                    # Generate Spanish carousel if needed (REUSE same images)
-                    if request.post_type in ["carousel", "trending_news"]:
-                        spanish_slides = _parse_slides_from_content(content_es)
-                        
-                        if spanish_slides:
-                            # IMPORTANT: Reuse the same generated images from English version
-                            # This is done by media_generator caching images by visual description
-                            pdf_bytes_es = media_generator.generate_carousel_pdf(
-                                slides=spanish_slides,
-                                title=spanish_slides[0].get('title', request.pillar),
-                                theme="professional_blue",
-                                first_slide_image_url=first_slide_image
-                            )
-                            
-                            # Save Spanish PDF
-                            filename_es = filename.replace('.pdf', '_ES.pdf')
-                            local_path_es = os.path.join(output_dir, filename_es)
-                            
-                            with open(local_path_es, 'wb') as f:
-                                f.write(pdf_bytes_es)
-                            
-                            print(f"✅ Spanish carousel saved: {local_path_es}")
-                            carousel_url_es = to_data_uri(pdf_bytes_es, "application/pdf")
-                
-                except Exception as e:
-                    print(f"Warning: Spanish version generation failed: {e}")
-            
             return PostResponse(
                 content=final_content,
                 voice_score=round(voice_score, 1),
-                hashtags=hashtags[:5] if hashtags else ["#LinkedIn", "#Professional"],
-                carousel_url=carousel_url,
-                content_es=content_es,
-                carousel_url_es=carousel_url_es
+                hashtags=hashtags[:5] if hashtags else ["#LinkedIn", "#Professional"]
             )
         
         else:
@@ -462,55 +187,6 @@ async def health_check():
         "media_generation": True,
         "storage": bool(storage_service)
     }
-
-
-# ============================================
-# NEWS ENDPOINTS
-# ============================================
-
-from api.services.news_service import news_service
-
-class NewsSearchRequest(BaseModel):
-    pillar: Optional[str] = None
-    query: Optional[str] = None
-    max_results: int = 5
-
-@app.post("/news/search")
-async def search_news(request: NewsSearchRequest):
-    """
-    Search for trending news articles
-    
-    Returns top 5 most viral articles from reputable sources
-    """
-    try:
-        articles = news_service.search_trending_news(
-            query=request.query or "",
-            pillar=request.pillar,
-            max_results=request.max_results
-        )
-        
-        return {
-            "articles": articles,
-            "count": len(articles)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"News search failed: {str(e)}")
-
-@app.get("/news/top-headlines")
-async def get_top_headlines(category: str = "technology", max_results: int = 5):
-    """Get top headlines by category"""
-    try:
-        articles = news_service.get_top_headlines(
-            category=category,
-            max_results=max_results
-        )
-        
-        return {
-            "articles": articles,
-            "count": len(articles)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch headlines: {str(e)}")
 
 
 # ============================================
@@ -549,12 +225,8 @@ class QRCodeRequest(BaseModel):
 class CarouselRequest(BaseModel):
     slides: List[Dict[str, str]]
     title: str
-    pillar: Optional[str] = "General"  # Content pillar for naming (Leadership, Tech, Growth, etc.)
-    theme: Optional[str] = "professional_blue"  # Color theme (professional_blue, elegant_dark, modern_purple, etc.)
-    language: Optional[str] = "both"  # Language: english, spanish, or both
     post_id: Optional[str] = None
     save_to_storage: bool = True
-    first_slide_image_url: Optional[str] = None  # External image URL for first slide (e.g., news article image)
 
 class AIImageRequest(BaseModel):
     prompt: str
@@ -724,156 +396,29 @@ async def generate_qrcode(request: QRCodeRequest):
 
 @app.post("/media/generate-carousel")
 async def generate_carousel(request: CarouselRequest):
-    """Generate PDF carousel (English, Spanish, or both)"""
+    """Generate PDF carousel"""
     try:
-        # Initialize Gemini model for translations
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        pdf_bytes = media_generator.generate_carousel_pdf(
+            slides=request.slides,
+            title=request.title
+        )
         
-        # Determine which languages to generate
-        should_generate_english = request.language in ["english", "both"]
-        should_generate_spanish = request.language in ["spanish", "both"]
-        
-        # English generation
         url = None
-        filename = None
-        local_path = None
-        
-        if should_generate_english:
-            pdf_bytes = media_generator.generate_carousel_pdf(
-                slides=request.slides,
-                title=request.title,
-                theme=request.theme or "professional_blue",
-                first_slide_image_url=request.first_slide_image_url
-            )
-            
-            # Create smart filename
-            from datetime import datetime
-            import re
-            
-            title_words = request.title.split()[:3]
-            short_title = "".join([re.sub(r'[^A-Za-z0-9]', '', word).capitalize() for word in title_words])
-            pillar_code = re.sub(r'[^A-Za-z0-9]', '', request.pillar or "General")
-            date_str = datetime.now().strftime("%b%d")
-            
-            filename = f"{short_title}_{pillar_code}_{date_str}_EN.pdf"
-            
-            # Save locally
-            output_dir = os.path.join(os.getcwd(), "GeneratedCarousels")
-            os.makedirs(output_dir, exist_ok=True)
-            
-            local_path = os.path.join(output_dir, filename)
-            with open(local_path, 'wb') as f:
-                f.write(pdf_bytes)
-            
-            print(f"✅ English carousel saved: {local_path}")
-            
-            if request.save_to_storage and storage_service and request.post_id:
-                try:
-                    url = storage_service.upload_media(pdf_bytes, request.post_id, "carousel", "pdf")
-                except Exception as e:
-                    print(f"Storage upload failed: {e}")
-            
-            if not url:
-                url = to_data_uri(pdf_bytes, "application/pdf")
-        
-        # Spanish generation
-        url_es = None
-        filename_es = None
-        local_path_es = None
-        
-        if should_generate_spanish:
-            # Translate slides to Spanish using Gemini
+        if request.save_to_storage and storage_service and request.post_id:
             try:
-                translation_prompt = f"""Translate these carousel slides to Spanish (Español). 
-Maintain the same structure and formatting. Keep technical terms appropriate for a professional Spanish-speaking audience.
-
-Slides to translate:
-{json.dumps(request.slides, indent=2)}
-
-Return ONLY a JSON array of the translated slides in the exact same format."""
-                
-                print(f"🔄 Translating slides to Spanish...")
-                translation_response = model.generate_content(translation_prompt)
-                spanish_slides_text = translation_response.text.strip()
-                
-                print(f"📝 Translation response: {spanish_slides_text[:200]}...")
-                
-                # Clean markdown code blocks if present
-                if spanish_slides_text.startswith('```'):
-                    spanish_slides_text = spanish_slides_text.split('```')[1]
-                    if spanish_slides_text.startswith('json'):
-                        spanish_slides_text = spanish_slides_text[4:]
-                    spanish_slides_text = spanish_slides_text.strip()
-                
-                spanish_slides = json.loads(spanish_slides_text)
-                print(f"✅ Parsed {len(spanish_slides)} Spanish slides")
-                
-                # Generate Spanish PDF (reuses cached images via visual descriptions)
-                print(f"🎨 Generating Spanish PDF...")
-                pdf_bytes_es = media_generator.generate_carousel_pdf(
-                    slides=spanish_slides,
-                    title=spanish_slides[0].get('title', request.title) if spanish_slides else request.title,
-                    theme=request.theme or "professional_blue",
-                    first_slide_image_url=request.first_slide_image_url
+                url = storage_service.upload_media(
+                    pdf_bytes,
+                    request.post_id,
+                    "carousel",
+                    "pdf"
                 )
-                
-                # Create filename
-                from datetime import datetime
-                import re
-                
-                title_words = request.title.split()[:3]
-                short_title = "".join([re.sub(r'[^A-Za-z0-9]', '', word).capitalize() for word in title_words])
-                pillar_code = re.sub(r'[^A-Za-z0-9]', '', request.pillar or "General")
-                date_str = datetime.now().strftime("%b%d")
-                
-                filename_es = f"{short_title}_{pillar_code}_{date_str}_ES.pdf"
-                
-                # Save locally - ensure directory exists
-                output_dir = os.path.join(os.getcwd(), "GeneratedCarousels")
-                os.makedirs(output_dir, exist_ok=True)
-                local_path_es = os.path.join(output_dir, filename_es)
-                
-                with open(local_path_es, 'wb') as f:
-                    f.write(pdf_bytes_es)
-                
-                print(f"✅ Spanish carousel saved: {local_path_es}")
-                
-                if request.save_to_storage and storage_service and request.post_id:
-                    try:
-                        url_es = storage_service.upload_media(pdf_bytes_es, request.post_id, "carousel", "pdf")
-                    except Exception as e:
-                        print(f"Storage upload failed: {e}")
-                
-                if not url_es:
-                    url_es = to_data_uri(pdf_bytes_es, "application/pdf")
-                    print(f"✅ Spanish data URI generated (length: {len(url_es)})")
-                    
             except Exception as e:
-                print(f"❌ ERROR: Spanish carousel generation failed: {str(e)}")
-                import traceback
-                traceback.print_exc()
-                # If Spanish was the only requested language, fail the request
-                if request.language == "spanish":
-                    raise HTTPException(status_code=500, detail=f"Spanish carousel generation failed: {str(e)}")
-        
-        # If Spanish-only was requested, move Spanish to main response
-        if request.language == "spanish":
-            if not url_es:
-                raise HTTPException(status_code=500, detail="Spanish carousel generation failed - no URL generated")
-            url = url_es
-            filename = filename_es
-            local_path = local_path_es
-        
-        return {
-            "success": True,
-            "url": url,
-            "filename": filename,
-            "local_path": local_path,
-            "url_es": url_es if request.language == "both" else None,
-            "filename_es": filename_es if request.language == "both" else None,
-            "local_path_es": local_path_es if request.language == "both" else None,
-            "type": "carousel"
-        }
+                print(f"Storage upload failed: {e}")
+
+        if not url:
+            url = to_data_uri(pdf_bytes, "application/pdf")
+            
+        return {"success": True, "url": url, "type": "carousel"}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating carousel: {str(e)}")
@@ -921,3 +466,17 @@ async def list_post_media(post_id: str):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing media: {str(e)}")
+
+
+# ============================================
+# NEWS & TRENDING ENDPOINTS
+# ============================================
+
+@app.get("/news/trending")
+async def get_trending_news(category: str = "technology", count: int = 10):
+    """Get trending news articles for content inspiration"""
+    try:
+        articles = news_service.get_trending_articles(category=category, count=count)
+        return {"success": True, "articles": articles, "category": category}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching news: {str(e)}")

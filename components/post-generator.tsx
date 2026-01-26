@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,8 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { api, PostResponse } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
-import { PostInsert } from '@/types/database'
-import { Loader2, Sparkles, Copy, CheckCircle2, Edit2, Save } from 'lucide-react'
+import { Loader2, Sparkles, Copy, CheckCircle2 } from 'lucide-react'
 
 const PILLARS = [
   'AI & Innovation',
@@ -24,7 +23,6 @@ const PILLARS = [
 const POST_TYPES = [
   { value: 'standard', label: 'Standard Text + Image' },
   { value: 'carousel', label: 'Carousel PDF (Slides)' },
-  { value: 'trending_news', label: '🔥 Trending News Commentary' },
   { value: 'interactive', label: 'Interactive Demo' }
 ]
 
@@ -38,98 +36,28 @@ const FORMATS = [
   'Case Study'
 ]
 
-const LANGUAGES = [
-  { value: 'english', label: '🇬🇧 English' },
-  { value: 'spanish', label: '🇪🇸 Español' },
-  { value: 'both', label: '🌐 Both Languages' }
-]
-
-interface NewsArticle {
-  title: string
-  description: string
-  url: string
-  image_url?: string
-  source: string
-  published_at: string
-  author?: string
-}
-
 export function PostGenerator() {
   const router = useRouter()
   const [pillar, setPillar] = useState('')
   const [postType, setPostType] = useState('standard')
   const [format, setFormat] = useState('')
   const [topic, setTopic] = useState('')
-  const [language, setLanguage] = useState('both')
   const [provider] = useState('gemini')
   const [loading, setLoading] = useState(false)
   const [generatedPost, setGeneratedPost] = useState<PostResponse | null>(null)
   const [copied, setCopied] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editedText, setEditedText] = useState('')
-  
-  // News article selection state
-  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([])
-  const [selectedArticles, setSelectedArticles] = useState<NewsArticle[]>([])
-  const [newsLoading, setNewsLoading] = useState(false)
-
-  // Fetch news articles when trending_news type is selected and pillar is chosen
-  useEffect(() => {
-    if (postType === 'trending_news' && pillar) {
-      fetchNewsArticles()
-    } else {
-      setNewsArticles([])
-      setSelectedArticles([])
-    }
-  }, [postType, pillar])
-
-  const fetchNewsArticles = async () => {
-    setNewsLoading(true)
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-      const response = await fetch(`${API_URL}/news/search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          pillar: pillar,
-          query: topic || undefined,
-          max_results: 10
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch news articles')
-      }
-
-      const data = await response.json()
-      setNewsArticles(data.articles || [])
-    } catch (error) {
-      console.error('Error fetching news:', error)
-      alert('Failed to fetch trending news. Please try again.')
-    } finally {
-      setNewsLoading(false)
-    }
-  }
 
   const handleGenerate = async () => {
     if (!pillar || !format) return
-    if (postType === 'trending_news' && selectedArticles.length === 0) return
 
     setLoading(true)
     try {
-      // Use the first selected article (or could combine multiple in future)
-      const newsArticle = postType === 'trending_news' && selectedArticles.length > 0 ? selectedArticles[0] : undefined
-      
       const result = await api.generatePost({
         pillar,
-        post_type: postType,
+
         format_type: format,
         topic: topic || undefined,
-        provider,
-        news_article: newsArticle,
-        language: language
+        provider
       })
       
       console.log('API Result:', result)
@@ -138,26 +66,22 @@ export function PostGenerator() {
       const postId = crypto.randomUUID()
       
       // Save to Supabase
-      const postData: PostInsert = {
+      const postData = {
         id: postId,
-        text: result.content || result.text,  // Try content first, fallback to text
+        text: result.text || result.content,
         pillar: pillar,
         format: format,
         // type: postType, // Temporarily disabled until DB migration
         topic: topic || null,
         hashtags: result.hashtags ? result.hashtags.join(' ') : null,
         voice_score: result.voice_score,
-        length: (result.content || result.text || '').length,
+        length: (result.text || result.content || '').length,
         status: 'raw' as const
       }
       
       console.log('Attempting to insert:', postData)
       
-      // Type assertion to work around Supabase type inference issue
-      const { data: insertedData, error } = await supabase
-        .from('posts')
-        .insert([postData] as any)
-        .select()
+      const { data: insertedData, error } = await supabase.from('posts').insert(postData).select()
 
       console.log('Insert result:', { data: insertedData, error })
 
@@ -180,6 +104,7 @@ export function PostGenerator() {
           topic: topic || '',
           hashtags: result.hashtags || []
         })
+        alert('Post generated and saved successfully!')
       }
     } catch (error) {
       console.error('Failed to generate post:', error)
@@ -204,57 +129,10 @@ export function PostGenerator() {
 
   const handleCopy = () => {
     if (generatedPost) {
-      const textToCopy = isEditing ? editedText : generatedPost.text
-      navigator.clipboard.writeText(textToCopy)
+      navigator.clipboard.writeText(generatedPost.text)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
-  }
-
-  const handleEdit = () => {
-    if (generatedPost) {
-      setEditedText(generatedPost.text)
-      setIsEditing(true)
-    }
-  }
-
-  const handleSaveEdit = async () => {
-    if (!generatedPost || !editedText.trim()) return
-
-    try {
-      // Update in state
-      const updatedPost = {
-        ...generatedPost,
-        text: editedText,
-        length: editedText.length
-      }
-      setGeneratedPost(updatedPost)
-
-      // Update in database
-      if ((generatedPost as any).id) {
-        const { error } = await (supabase
-          .from('posts') as any)
-          .update({ 
-            text: editedText,
-            length: editedText.length 
-          })
-          .eq('id', (generatedPost as any).id)
-
-        if (error) {
-          console.error('Error updating post:', error)
-        }
-      }
-
-      setIsEditing(false)
-    } catch (error) {
-      console.error('Failed to save edits:', error)
-      alert('Failed to save edits')
-    }
-  }
-
-  const handleCancelEdit = () => {
-    setIsEditing(false)
-    setEditedText('')
   }
 
   return (
@@ -326,120 +204,29 @@ export function PostGenerator() {
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Language *</label>
-            <Select value={language} onValueChange={setLanguage}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select language" />
-              </SelectTrigger>
-              <SelectContent>
-                {LANGUAGES.map((lang) => (
-                  <SelectItem key={lang.value} value={lang.value}>
-                    {lang.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {language === 'both' && (
-              <p className="text-xs text-muted-foreground">
-                Generates English and Spanish versions separately
-              </p>
-            )}
-          </div>
-
-          {/* News Article Selection */}
-          {postType === 'trending_news' && (
-            <div className="space-y-3 border-t pt-4">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">
-                  Select Article(s) * {selectedArticles.length > 0 && `(${selectedArticles.length} selected)`}
-                </label>
-                {newsLoading && (
-                  <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                )}
-              </div>
-              
-              {newsArticles.length === 0 && !newsLoading && pillar && (
-                <p className="text-sm text-muted-foreground">
-                  No trending articles found. Try a different pillar or topic.
-                </p>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleGenerate}
+              disabled={!pillar || !format || loading}
+              className="flex-1"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                'Generate Post'
               )}
-
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {newsArticles.map((article, index) => {
-                  const isSelected = selectedArticles.some(a => a.url === article.url)
-                  
-                  return (
-                    <div 
-                      key={index} 
-                      className={`p-3 border rounded-lg cursor-pointer transition-all hover:bg-accent ${
-                        isSelected 
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950' 
-                          : 'border-border'
-                      }`}
-                      onClick={() => {
-                        if (isSelected) {
-                          setSelectedArticles(selectedArticles.filter(a => a.url !== article.url))
-                        } else {
-                          setSelectedArticles([...selectedArticles, article])
-                        }
-                      }}
-                    >
-                      <div className="flex gap-2">
-                        <input 
-                          type="checkbox" 
-                          checked={isSelected}
-                          onChange={() => {}} 
-                          className="mt-0.5 cursor-pointer"
-                        />
-                        <div className="flex-1">
-                          <h4 className="text-sm font-semibold mb-1 leading-tight">
-                            {article.title}
-                          </h4>
-                          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                            {article.description}
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                {article.source}
-                              </Badge>
-                              <span>•</span>
-                              <span>{new Date(article.published_at).toLocaleDateString()}</span>
-                            </div>
-                            <a 
-                              href={article.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              Read full →
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          <Button
-            onClick={handleGenerate}
-            disabled={!pillar || !format || loading || (postType === 'trending_news' && selectedArticles.length === 0)}
-            className="w-full"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              'Generate Post'
-            )}
-          </Button>
+            </Button>
+            <Button
+              onClick={handleBatchGenerate}
+              variant="outline"
+              disabled={loading}
+            >
+              Batch (10)
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -463,11 +250,9 @@ export function PostGenerator() {
               </div>
               
               <Textarea
-                value={isEditing ? editedText : generatedPost.text}
-                onChange={(e) => isEditing && setEditedText(e.target.value)}
-                readOnly={!isEditing}
-                className={`min-h-[300px] font-sans ${isEditing ? 'border-blue-500 border-2' : ''}`}
-                placeholder={isEditing ? 'Edit your post content...' : ''}
+                value={generatedPost.text}
+                readOnly
+                className="min-h-[300px] font-sans"
               />
 
               {generatedPost.hashtags && generatedPost.hashtags.length > 0 && (
@@ -481,125 +266,38 @@ export function PostGenerator() {
               )}
 
               <div className="flex items-center justify-between text-sm text-slate-600">
-                <span>{isEditing ? editedText.length : generatedPost.length} characters</span>
+                <span>{generatedPost.length} characters</span>
                 {generatedPost.voice_score && (
                   <span>Voice Score: {generatedPost.voice_score.toFixed(1)}/10</span>
                 )}
               </div>
 
               <div className="flex gap-2 pt-2">
-                {isEditing ? (
-                  <>
-                    <Button onClick={handleSaveEdit} variant="default" className="flex-1 bg-green-600 hover:bg-green-700">
-                      <Save className="mr-2 h-4 w-4" />
-                      Save Changes
-                    </Button>
-                    <Button onClick={handleCancelEdit} variant="outline" className="flex-1">
-                      Cancel
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button onClick={handleEdit} variant="outline" className="flex-1">
-                      <Edit2 className="mr-2 h-4 w-4" />
-                      Edit
-                    </Button>
-                    <Button onClick={handleCopy} variant="outline" className="flex-1">
-                      {copied ? (
-                        <>
-                          <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copy
-                        </>
-                      )}
-                    </Button>
-                  </>
+                <Button onClick={handleCopy} variant="outline" className="flex-1">
+                  {copied ? (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copy to Clipboard
+                    </>
+                  )}
+                </Button>
+
+                {(generatedPost as any).id && (
+                  <Button 
+                    variant="default" 
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    onClick={() => router.push(`/demos/${(generatedPost as any).id}?tab=visualize`)}
+                  >
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Create Visuals
+                  </Button>
                 )}
               </div>
-
-              {/* Carousel Preview */}
-              {(generatedPost as any).carousel_url && (
-                <div className="mt-4 border rounded-lg p-4 bg-slate-50">
-                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-blue-600" />
-                    🇬🇧 English Carousel
-                  </h3>
-                  <iframe
-                    src={(generatedPost as any).carousel_url}
-                    className="w-full h-[500px] border rounded"
-                    title="English Carousel Preview"
-                  />
-                  <a
-                    href={(generatedPost as any).carousel_url}
-                    download="linkedin-carousel-EN.pdf"
-                    className="mt-3 inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    Download English PDF →
-                  </a>
-                </div>
-              )}
-
-              {/* Spanish Carousel Preview */}
-              {(generatedPost as any).carousel_url_es && (
-                <div className="mt-4 border rounded-lg p-4 bg-slate-50">
-                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-blue-600" />
-                    🇪🇸 Spanish Carousel (Español)
-                  </h3>
-                  <iframe
-                    src={(generatedPost as any).carousel_url_es}
-                    className="w-full h-[500px] border rounded"
-                    title="Spanish Carousel Preview"
-                  />
-                  <a
-                    href={(generatedPost as any).carousel_url_es}
-                    download="linkedin-carousel-ES.pdf"
-                    className="mt-3 inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    Download Spanish PDF →
-                  </a>
-                </div>
-              )}
-
-              {/* Spanish Text Content */}
-              {(generatedPost as any).content_es && (
-                <div className="mt-4 border rounded-lg p-4 bg-amber-50">
-                  <h3 className="text-sm font-semibold mb-3 text-amber-900">
-                    🇪🇸 Spanish Version (Español)
-                  </h3>
-                  <textarea
-                    value={(generatedPost as any).content_es}
-                    readOnly
-                    className="w-full min-h-[200px] p-4 border rounded-lg resize-none bg-white"
-                  />
-                  <Button 
-                    onClick={() => {
-                      navigator.clipboard.writeText((generatedPost as any).content_es)
-                      alert('Spanish version copied!')
-                    }}
-                    variant="outline" 
-                    className="mt-2 w-full"
-                  >
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy Spanish Version
-                  </Button>
-                </div>
-              )}
-
-              {!isEditing && (generatedPost as any).id && (
-                <Button 
-                  variant="default" 
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                  onClick={() => router.push(`/demos/${(generatedPost as any).id}?tab=visualize`)}
-                >
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Create Visuals
-                </Button>
-              )}
             </div>
           ) : (
             <div className="flex items-center justify-center h-[300px] text-slate-400">
