@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { api, PostResponse } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import type { PostInsert } from '@/types/database'
 import { Loader2, Sparkles, Copy, CheckCircle2 } from 'lucide-react'
 
 const PILLARS = [
@@ -73,7 +74,7 @@ export function PostGenerator() {
       const postId = crypto.randomUUID()
       
       // Save to Supabase
-      const postData = {
+      const postData: PostInsert = {
         id: postId,
         text: result.text,
         pillar: pillar,
@@ -83,7 +84,7 @@ export function PostGenerator() {
         hashtags: result.hashtags ? result.hashtags.join(' ') : null,
         voice_score: result.voice_score,
         length: (result.text || '').length,
-        status: 'raw' as const
+        status: 'raw'
       }
       
       console.log('Attempting to insert:', postData)
