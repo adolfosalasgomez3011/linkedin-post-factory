@@ -55,7 +55,7 @@ export function PostGenerator() {
   const [loading, setLoading] = useState(false)
   const [loadingNews, setLoadingNews] = useState(false)
   const [newsList, setNewsList] = useState<any[]>([])
-  const [selectedNews, setSelectedNews] = useState('')
+  const [selectedNews, setSelectedNews] = useState<string[]>([])
   const [generatedPost, setGeneratedPost] = useState<PostResponse | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -400,44 +400,58 @@ export function PostGenerator() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
-                    {newsList.map((news, idx) => (
-                      <tr 
-                        key={idx}
-                        className={`hover:bg-slate-50 cursor-pointer ${selectedNews === news.title ? 'bg-blue-50' : ''}`}
-                        onClick={() => {
-                          setSelectedNews(news.title)
-                          setTopic(news.title + ': ' + news.summary)
-                        }}
-                      >
-                        <td className="px-4 py-3 text-center">
-                          <input
-                            type="radio"
-                            name="news-selection"
-                            checked={selectedNews === news.title}
-                            onChange={() => {
-                              setSelectedNews(news.title)
-                              setTopic(news.title + ': ' + news.summary)
-                            }}
-                            className="h-4 w-4 text-blue-600"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="font-medium text-sm text-slate-900">
-                            {news.title}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-sm text-slate-600 line-clamp-2">
-                            {news.summary}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-xs text-slate-500">
-                            {news.source}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {newsList.map((news, idx) => {
+                      const isSelected = selectedNews.includes(news.title)
+                      const handleToggle = () => {
+                        let newSelection: string[]
+                        if (isSelected) {
+                          newSelection = selectedNews.filter(title => title !== news.title)
+                        } else {
+                          newSelection = [...selectedNews, news.title]
+                        }
+                        setSelectedNews(newSelection)
+                        
+                        // Combine all selected news into topic
+                        const combinedTopic = newsList
+                          .filter(n => newSelection.includes(n.title))
+                          .map(n => `${n.title}: ${n.summary}`)
+                          .join(' | ')
+                        setTopic(combinedTopic)
+                      }
+                      
+                      return (
+                        <tr 
+                          key={idx}
+                          className={`hover:bg-slate-50 cursor-pointer ${isSelected ? 'bg-blue-50' : ''}`}
+                          onClick={handleToggle}
+                        >
+                          <td className="px-4 py-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={handleToggle}
+                              onClick={(e) => e.stopPropagation()}
+                              className="h-4 w-4 text-blue-600 rounded"
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-sm text-slate-900">
+                              {news.title}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm text-slate-600 line-clamp-2">
+                              {news.summary}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-xs text-slate-500">
+                              {news.source}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
