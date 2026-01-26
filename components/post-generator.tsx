@@ -89,7 +89,11 @@ export function PostGenerator() {
       
       console.log('Attempting to insert:', postData)
       
-      const { data: insertedData, error } = await supabase.from('posts').insert(postData).select()
+      // Type assertion to bypass Supabase type inference issues
+      const { data: insertedData, error } = await supabase
+        .from('posts')
+        .insert(postData as any)
+        .select()
 
       console.log('Insert result:', { data: insertedData, error })
 
