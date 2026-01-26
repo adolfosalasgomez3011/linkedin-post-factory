@@ -293,7 +293,7 @@ function VisualizationPanel({ post }: { post: Post }) {
         }
       } else if (type === 'carousel') {
         endpoint = '/media/generate-carousel'
-        let slides = [];
+        let slides: Array<{ title: string; content: string }> = [];
         const text = post.text || '';
         
         // Try parsing "SLIDE X:" format
