@@ -53,8 +53,31 @@ export function PostGenerator() {
   const [language, setLanguage] = useState('both')
   const [provider] = useState('gemini')
   const [loading, setLoading] = useState(false)
+  const [loadingNews, setLoadingNews] = useState(false)
+  const [newsList, setNewsList] = useState<any[]>([])
+  const [selectedNews, setSelectedNews] = useState('')
   const [generatedPost, setGeneratedPost] = useState<PostResponse | null>(null)
   const [copied, setCopied] = useState(false)
+
+  // Fetch news when "news" post type is selected
+  useEffect(() => {
+    if (postType === 'news' && newsList.length === 0) {
+      fetchTrendingNews()
+    }
+  }, [postType])
+
+  const fetchTrendingNews = async () => {
+    setLoadingNews(true)
+    try {
+      const news = await api.getTrendingNews('technology', 15)
+      setNewsList(news.articles || [])
+    } catch (error) {
+      console.error('Failed to fetch news:', error)
+      alert('Failed to load trending news')
+    } finally {
+      setLoadingNews(false)
+    }
+  }
 
   const handleGenerate = async () => {
     if (!pillar || !format) return
@@ -192,6 +215,39 @@ export function PostGenerator() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* News Selection - Show when news post type is selected */}
+          {postType === 'news' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Trending News *</label>
+              {loadingNews ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                  <span className="ml-2 text-sm text-slate-500">Loading news...</span>
+                </div>
+              ) : (
+                <Select value={selectedNews} onValueChange={(value) => {
+                  setSelectedNews(value)
+                  const news = newsList.find(n => n.title === value)
+                  if (news) setTopic(news.title + ': ' + news.summary)
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a news topic" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {newsList.map((news, idx) => (
+                      <SelectItem key={idx} value={news.title}>
+                        <div className="text-sm">
+                          <div className="font-medium">{news.title}</div>
+                          <div className="text-xs text-slate-500 mt-1">{news.source}</div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
 
           <div className="space-y-2">            <label className="text-sm font-medium">Format *</label>
             <Select value={format} onValueChange={setFormat}>
