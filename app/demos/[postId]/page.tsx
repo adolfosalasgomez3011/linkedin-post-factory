@@ -259,6 +259,7 @@ function VisualizationPanel({ post }: { post: Post }) {
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
   const [generatedType, setGeneratedType] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [carouselStyle, setCarouselStyle] = useState('professional')
 
   const generateVisual = async (type: string) => {
     setGenerating(true)
@@ -353,6 +354,7 @@ function VisualizationPanel({ post }: { post: Post }) {
         body = {
             ...body,
             title: post.topic || 'In-Depth Carousel',
+            style: carouselStyle,
             slides: slides.length > 0 ? slides : [
                 { title: 'Introduction', content_en: 'Carousel content based on your post.', content_es: 'Contenido del carrusel basado en tu publicación.' }
             ]
@@ -409,6 +411,26 @@ function VisualizationPanel({ post }: { post: Post }) {
       <p className="text-sm text-muted-foreground">
         Generate stunning visual assets to accompany your LinkedIn post:
       </p>
+
+      {/* Carousel Style Selector */}
+      <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border">
+        <label className="text-sm font-medium mb-2 block">Carousel Style</label>
+        <div className="grid grid-cols-5 gap-2">
+          {['professional', 'relaxed', 'corporate', 'creative', 'minimal'].map((style) => (
+            <button
+              key={style}
+              onClick={() => setCarouselStyle(style)}
+              className={`px-3 py-2 text-xs rounded capitalize transition-all ${
+                carouselStyle === style
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700'
+              }`}
+            >
+              {style}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Button
