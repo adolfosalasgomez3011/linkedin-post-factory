@@ -24,6 +24,7 @@ const PILLARS = [
 const POST_TYPES = [
   { value: 'standard', label: 'Standard Text + Image' },
   { value: 'carousel', label: 'Carousel PDF (Slides)' },
+  { value: 'news', label: 'News / Trending Topic' },
   { value: 'interactive', label: 'Interactive Demo' }
 ]
 
