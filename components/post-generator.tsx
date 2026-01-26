@@ -68,7 +68,7 @@ export function PostGenerator() {
       // Save to Supabase
       const postData = {
         id: postId,
-        text: result.text || result.content,
+        text: result.text,
         pillar: pillar,
         format: format,
         // type: postType, // Temporarily disabled until DB migration
