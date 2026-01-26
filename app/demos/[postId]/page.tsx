@@ -293,8 +293,24 @@ function VisualizationPanel({ post }: { post: Post }) {
         }
       } else if (type === 'carousel') {
         endpoint = '/media/generate-carousel'
-        let slides: Array<{ title: string; content: string }> = [];
+        let slides: Array<{ title: string; content?: string; content_en?: string; content_es?: string }> = [];
         const text = post.text || '';
+        
+        // Check if post is bilingual (contains "---" separator)
+        const isBilingual = text.includes('---');
+        let englishText = '';
+        let spanishText = '';
+        
+        if (isBilingual) {
+          // Split by "---" to get English and Spanish versions
+          const parts = text.split('---');
+          englishText = parts[0]?.trim() || '';
+          spanishText = parts[1]?.trim() || '';
+          
+          // Remove language headers if present
+          englishText = englishText.replace(/###\s*Post Text/i, '').trim();
+          spanishText = spanishText.replace(/###\s*Versión en Español/i, '').trim();
+        }
         
         // Try parsing "SLIDE X:" format
         if (text.includes('SLIDE')) {
@@ -305,13 +321,28 @@ function VisualizationPanel({ post }: { post: Post }) {
                 const content = lines.slice(1).join('\n').trim();
                 return {
                     title: title || `Slide ${i+1}`,
-                    content: content || title // If no content, use title as content
+                    content: content || title
                 };
             });
         }
-        
-        // Fallback to simple line splitting if parsing failed or didn't produce slides
-        if (slides.length === 0) {
+        // If bilingual, create slides with side-by-side content
+        else if (isBilingual && englishText && spanishText) {
+          // Split each language version into slide-worthy chunks
+          const enParagraphs = englishText.split('\n\n').filter(p => p.trim().length > 30);
+          const esParagraphs = spanishText.split('\n\n').filter(p => p.trim().length > 30);
+          
+          const slideCount = Math.max(enParagraphs.length, esParagraphs.length, 3);
+          
+          for (let i = 0; i < slideCount; i++) {
+            slides.push({
+              title: i === 0 ? (post.topic || 'Introduction') : `Key Point ${i}`,
+              content_en: enParagraphs[i] || enParagraphs[enParagraphs.length - 1] || 'Follow for more insights',
+              content_es: esParagraphs[i] || esParagraphs[esParagraphs.length - 1] || 'Sígueme para más contenido'
+            });
+          }
+        }
+        // Fallback to simple line splitting
+        else if (slides.length === 0) {
              const lines = text.split('\n').filter(l => l.length > 20).slice(0, 5);
              slides = lines.map((l, i) => ({ 
                 title: i === 0 ? (post.topic?.toUpperCase() || 'INSIGHT') : `Key Point ${i}`, 
@@ -323,9 +354,7 @@ function VisualizationPanel({ post }: { post: Post }) {
             ...body,
             title: post.topic || 'In-Depth Carousel',
             slides: slides.length > 0 ? slides : [
-                { title: 'Introduction', content: 'Carousel content based on your post.' },
-                { title: 'Key Insight', content: 'Detailed analysis of the topic.' },
-                { title: 'Conclusion', content: 'Follow for more insights.' }
+                { title: 'Introduction', content_en: 'Carousel content based on your post.', content_es: 'Contenido del carrusel basado en tu publicación.' }
             ]
         }
       } else if (type === 'infographic') {
