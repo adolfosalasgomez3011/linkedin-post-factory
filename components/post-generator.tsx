@@ -36,12 +36,19 @@ const FORMATS = [
   'Case Study'
 ]
 
+const LANGUAGES = [
+  { value: 'english', label: 'English Only' },
+  { value: 'spanish', label: 'Spanish Only' },
+  { value: 'both', label: 'Both Languages' }
+]
+
 export function PostGenerator() {
   const router = useRouter()
   const [pillar, setPillar] = useState('')
   const [postType, setPostType] = useState('standard')
   const [format, setFormat] = useState('')
   const [topic, setTopic] = useState('')
+  const [language, setLanguage] = useState('both')
   const [provider] = useState('gemini')
   const [loading, setLoading] = useState(false)
   const [generatedPost, setGeneratedPost] = useState<PostResponse | null>(null)
@@ -54,9 +61,9 @@ export function PostGenerator() {
     try {
       const result = await api.generatePost({
         pillar,
-
         format_type: format,
         topic: topic || undefined,
+        language: language,
         provider
       })
       
@@ -202,6 +209,25 @@ export function PostGenerator() {
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Language *</label>
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select language" />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGES.map((l) => (
+                  <SelectItem key={l.value} value={l.value}>
+                    {l.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-slate-500">
+              Generates English and Spanish versions separately
+            </p>
           </div>
 
           <div className="flex gap-2">

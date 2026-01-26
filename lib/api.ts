@@ -4,6 +4,7 @@ export interface GeneratePostRequest {
   pillar: string
   format_type: string
   topic?: string
+  language?: string
   provider?: string
 }
 
