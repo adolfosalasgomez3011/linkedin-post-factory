@@ -172,84 +172,52 @@ export function PostGenerator() {
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      {/* Generation Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-blue-500" />
-            Generate Post
-          </CardTitle>
-          <CardDescription>
-            Create a new LinkedIn post using AI
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Content Pillar *</label>
-            <Select value={pillar} onValueChange={setPillar}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a pillar" />
-              </SelectTrigger>
-              <SelectContent>
-                {PILLARS.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">            <label className="text-sm font-medium">Post Type *</label>
-            <Select value={postType} onValueChange={setPostType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a type" />
-              </SelectTrigger>
-              <SelectContent>
-                {POST_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* News Selection - Show when news post type is selected */}
-          {postType === 'news' && (
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Generation Form */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-blue-500" />
+              Generate Post
+            </CardTitle>
+            <CardDescription>
+              Create a new LinkedIn post using AI
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Select Trending News *</label>
-              {loadingNews ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                  <span className="ml-2 text-sm text-slate-500">Loading news...</span>
-                </div>
-              ) : (
-                <Select value={selectedNews} onValueChange={(value) => {
-                  setSelectedNews(value)
-                  const news = newsList.find(n => n.title === value)
-                  if (news) setTopic(news.title + ': ' + news.summary)
-                }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a news topic" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
-                    {newsList.map((news, idx) => (
-                      <SelectItem key={idx} value={news.title}>
-                        <div className="text-sm">
-                          <div className="font-medium">{news.title}</div>
-                          <div className="text-xs text-slate-500 mt-1">{news.source}</div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <label className="text-sm font-medium">Content Pillar *</label>
+              <Select value={pillar} onValueChange={setPillar}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a pillar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PILLARS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
 
-          <div className="space-y-2">            <label className="text-sm font-medium">Format *</label>
+            <div className="space-y-2">            <label className="text-sm font-medium">Post Type *</label>
+              <Select value={postType} onValueChange={setPostType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {POST_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">            <label className="text-sm font-medium">Format *</label>
             <Select value={format} onValueChange={setFormat}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a format" />
@@ -393,7 +361,89 @@ export function PostGenerator() {
             </div>
           )}
         </CardContent>
-      </Card>
-    </div>
+      </Card>      </div>
+
+      {/* Trending News Table - Shows below when news post type is selected */}
+      {postType === 'news' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              📰 Trending News Topics
+            </CardTitle>
+            <CardDescription>
+              Select a news article to generate a post about
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingNews ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                <span className="ml-3 text-sm text-slate-500">Loading trending news...</span>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b">
+                    <tr>
+                      <th className="w-12 px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                        Select
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                        Title
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                        Summary
+                      </th>
+                      <th className="w-32 px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">
+                        Source
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {newsList.map((news, idx) => (
+                      <tr 
+                        key={idx}
+                        className={`hover:bg-slate-50 cursor-pointer ${selectedNews === news.title ? 'bg-blue-50' : ''}`}
+                        onClick={() => {
+                          setSelectedNews(news.title)
+                          setTopic(news.title + ': ' + news.summary)
+                        }}
+                      >
+                        <td className="px-4 py-3 text-center">
+                          <input
+                            type="radio"
+                            name="news-selection"
+                            checked={selectedNews === news.title}
+                            onChange={() => {
+                              setSelectedNews(news.title)
+                              setTopic(news.title + ': ' + news.summary)
+                            }}
+                            className="h-4 w-4 text-blue-600"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-sm text-slate-900">
+                            {news.title}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-sm text-slate-600 line-clamp-2">
+                            {news.summary}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-xs text-slate-500">
+                            {news.source}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}    </div>
   )
 }
