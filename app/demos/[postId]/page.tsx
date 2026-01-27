@@ -328,61 +328,51 @@ function VisualizationPanel({ post }: { post: Post }) {
         }
         // If bilingual, create slides with side-by-side content
         else if (isBilingual && englishText && spanishText) {
-          // Split intelligently by complete sentences (never cut mid-phrase)
-          const enSentences = englishText.match(/[^.!?]+[.!?]+/g) || [englishText];
-          const esSentences = spanishText.match(/[^.!?]+[.!?]+/g) || [spanishText];
+          // Split by COMPLETE sentences only
+          const enSentences = englishText.match(/[^.!?]+[.!?]+/g) || [];
+          const esSentences = spanishText.match(/[^.!?]+[.!?]+/g) || [];
           
-          // Calculate optimal sentence grouping based on content length
+          if (enSentences.length === 0) enSentences.push(englishText);
+          if (esSentences.length === 0) esSentences.push(spanishText);
+          
+          // Calculate how many sentences fit per slide (target ~250-400 chars)
           const avgEnLength = enSentences.reduce((sum, s) => sum + s.length, 0) / enSentences.length;
-          const targetCharsPerSlide = 350; // ~3-5 sentences
-          const groupSize = Math.max(2, Math.min(5, Math.round(targetCharsPerSlide / avgEnLength)));
+          const sentencesPerSlide = Math.max(2, Math.min(4, Math.round(300 / avgEnLength)));
           
           const enGroups: string[] = [];
           const esGroups: string[] = [];
           
-          // Group COMPLETE sentences only (never split mid-sentence)
-          for (let i = 0; i < enSentences.length; i += groupSize) {
-            const group = enSentences.slice(i, i + groupSize).join(' ').trim();
-            // Only add if it's substantial content (>80 chars) AND ends with punctuation
-            if (group.length > 80 && /[.!?]$/.test(group)) {
+          // Group sentences - NEVER split mid-sentence
+          let enIndex = 0;
+          while (enIndex < enSentences.length) {
+            const group = enSentences.slice(enIndex, enIndex + sentencesPerSlide).join(' ').trim();
+            if (group.length > 50) {  // Must have substantial content
               enGroups.push(group);
             }
+            enIndex += sentencesPerSlide;
           }
           
-          for (let i = 0; i < esSentences.length; i += groupSize) {
-            const group = esSentences.slice(i, i + groupSize).join(' ').trim();
-            if (group.length > 80 && /[.!?]$/.test(group)) {
+          let esIndex = 0;
+          while (esIndex < esSentences.length) {
+            const group = esSentences.slice(esIndex, esIndex + sentencesPerSlide).join(' ').trim();
+            if (group.length > 50) {
               esGroups.push(group);
             }
+            esIndex += sentencesPerSlide;
           }
           
-          // If we have leftover sentences, append to last group (don't create partial slides)
-          if (enSentences.length % groupSize !== 0 && enGroups.length > 0) {
-            const remainingEn = enSentences.slice(enGroups.length * groupSize).join(' ').trim();
-            if (remainingEn.length > 30) {
-              enGroups[enGroups.length - 1] += ' ' + remainingEn;
-            }
-          }
-          
-          if (esSentences.length % groupSize !== 0 && esGroups.length > 0) {
-            const remainingEs = esSentences.slice(esGroups.length * groupSize).join(' ').trim();
-            if (remainingEs.length > 30) {
-              esGroups[esGroups.length - 1] += ' ' + remainingEs;
-            }
-          }
-          
-          // Create balanced slides (max 8 slides)
+          // Create slides (max 8)
           const slideCount = Math.min(Math.max(enGroups.length, esGroups.length), 8);
           
           for (let i = 0; i < slideCount; i++) {
-            const enContent = enGroups[i] || enGroups[enGroups.length - 1] || 'Follow for more insights';
-            const esContent = esGroups[i] || esGroups[esGroups.length - 1] || 'Sígueme para más contenido';
+            const enContent = enGroups[i] || enGroups[enGroups.length - 1] || 'Follow for more insights.';
+            const esContent = esGroups[i] || esGroups[esGroups.length - 1] || 'Sígueme para más contenido.';
             
-            // Skip if content is too short/low value
-            if (enContent.split(' ').length < 8 && i > 0) continue;
+            // Extract English title for translation
+            const enTitle = enContent.split('.')[0].split(' ').slice(0, 5).join(' ');
             
             slides.push({
-              title: i === 0 ? (post.topic || 'Introduction') : `Key Point ${i}`,
+              title: i === 0 ? (post.topic || enTitle) : enTitle,
               content_en: enContent,
               content_es: esContent
             });
