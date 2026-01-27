@@ -328,26 +328,46 @@ function VisualizationPanel({ post }: { post: Post }) {
         }
         // If bilingual, create slides with side-by-side content
         else if (isBilingual && englishText && spanishText) {
-          // Split intelligently by complete sentences/paragraphs
+          // Split intelligently by complete sentences (never cut mid-phrase)
           const enSentences = englishText.match(/[^.!?]+[.!?]+/g) || [englishText];
           const esSentences = spanishText.match(/[^.!?]+[.!?]+/g) || [spanishText];
           
-          // Group sentences into meaningful slides (2-4 sentences each)
-          const groupSize = 3;
+          // Calculate optimal sentence grouping based on content length
+          const avgEnLength = enSentences.reduce((sum, s) => sum + s.length, 0) / enSentences.length;
+          const targetCharsPerSlide = 350; // ~3-5 sentences
+          const groupSize = Math.max(2, Math.min(5, Math.round(targetCharsPerSlide / avgEnLength)));
+          
           const enGroups: string[] = [];
           const esGroups: string[] = [];
           
+          // Group COMPLETE sentences only (never split mid-sentence)
           for (let i = 0; i < enSentences.length; i += groupSize) {
             const group = enSentences.slice(i, i + groupSize).join(' ').trim();
-            if (group.length > 50) { // Only add if meaningful content
+            // Only add if it's substantial content (>80 chars) AND ends with punctuation
+            if (group.length > 80 && /[.!?]$/.test(group)) {
               enGroups.push(group);
             }
           }
           
           for (let i = 0; i < esSentences.length; i += groupSize) {
             const group = esSentences.slice(i, i + groupSize).join(' ').trim();
-            if (group.length > 50) {
+            if (group.length > 80 && /[.!?]$/.test(group)) {
               esGroups.push(group);
+            }
+          }
+          
+          // If we have leftover sentences, append to last group (don't create partial slides)
+          if (enSentences.length % groupSize !== 0 && enGroups.length > 0) {
+            const remainingEn = enSentences.slice(enGroups.length * groupSize).join(' ').trim();
+            if (remainingEn.length > 30) {
+              enGroups[enGroups.length - 1] += ' ' + remainingEn;
+            }
+          }
+          
+          if (esSentences.length % groupSize !== 0 && esGroups.length > 0) {
+            const remainingEs = esSentences.slice(esGroups.length * groupSize).join(' ').trim();
+            if (remainingEs.length > 30) {
+              esGroups[esGroups.length - 1] += ' ' + remainingEs;
             }
           }
           
