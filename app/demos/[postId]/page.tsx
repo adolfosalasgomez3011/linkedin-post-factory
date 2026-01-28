@@ -430,13 +430,40 @@ function VisualizationPanel({ post }: { post: Post }) {
         throw new Error(errorData.detail || `Failed to generate visual: ${response.statusText}`)
       }
 
-      const result = await response.json()
-      console.log('API Response:', result)
-      
-      if (result.url) {
-        setGeneratedUrl(result.url)
+      // Handle PDF download for carousel
+      if (type === 'carousel') {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        
+        // Extract filename from Content-Disposition header
+        const contentDisposition = response.headers.get('Content-Disposition')
+        let filename = 'carousel.pdf'
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="(.+)"/)
+          if (filenameMatch) {
+            filename = filenameMatch[1]
+          }
+        }
+        
+        // Trigger download
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+        
+        setGeneratedUrl(url)
       } else {
-        throw new Error('No URL returned from API')
+        const result = await response.json()
+        console.log('API Response:', result)
+        
+        if (result.url) {
+          setGeneratedUrl(result.url)
+        } else {
+          throw new Error('No URL returned from API')
+        }
       }
     } catch (error) {
       console.error('Error generating visual:', error)
