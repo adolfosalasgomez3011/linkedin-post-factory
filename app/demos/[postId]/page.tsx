@@ -329,8 +329,8 @@ function VisualizationPanel({ post }: { post: Post }) {
         // If bilingual, create slides with side-by-side content
         else if (isBilingual && englishText && spanishText) {
           // Split by COMPLETE sentences only
-          const enSentences = englishText.match(/[^.!?]+[.!?]+/g) || [];
-          const esSentences = spanishText.match(/[^.!?]+[.!?]+/g) || [];
+          const enSentences: string[] = englishText.match(/[^.!?]+[.!?]+/g) || [];
+          const esSentences: string[] = spanishText.match(/[^.!?]+[.!?]+/g) || [];
           
           if (enSentences.length === 0) enSentences.push(englishText);
           if (esSentences.length === 0) esSentences.push(spanishText);
