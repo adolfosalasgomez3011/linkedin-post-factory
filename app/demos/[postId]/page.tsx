@@ -392,6 +392,8 @@ function VisualizationPanel({ post }: { post: Post }) {
             title: post.topic || 'In-Depth Carousel',
             style: carouselStyle,
             content_pillar: post.contentPillar || post.content_pillar || 'General',
+            post_type: post.postType || post.post_type || 'Standard',
+            format: post.format || 'Text',
             topic: post.topic || 'Post',
             slides: slides.length > 0 ? slides : [
                 { title: 'Introduction', content_en: 'Carousel content based on your post.', content_es: 'Contenido del carrusel basado en tu publicación.' }
