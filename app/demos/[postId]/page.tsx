@@ -391,8 +391,8 @@ function VisualizationPanel({ post }: { post: Post }) {
             ...body,
             title: post.topic || 'In-Depth Carousel',
             style: carouselStyle,
-            content_pillar: post.contentPillar || post.content_pillar || 'General',
-            post_type: post.postType || post.post_type || 'Standard',
+            content_pillar: post.pillar || 'General',
+            post_type: 'Standard',
             format: post.format || 'Text',
             topic: post.topic || 'Post',
             slides: slides.length > 0 ? slides : [
